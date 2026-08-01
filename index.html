@@ -48,6 +48,7 @@
   .row-Folguista{background:rgba(255,200,80,.10);}
   .row-Parada{background:rgba(255,255,255,.04);color:var(--muted);}
   .row-Semfolguista{background:rgba(217,86,86,.20);font-weight:600;}
+  .row-Atestado{background:rgba(201,180,88,.22);font-weight:600;}
   .ajrow-F{background:rgba(91,139,208,.18);}
   .ajrow-H{background:rgba(201,107,107,.18);}
   .ajrow-B{background:rgba(127,166,80,.18);}
@@ -106,11 +107,29 @@
 
 <nav id="tabs"></nav>
 <main id="main"></main>
-<input type="file" id="input-importar-backup" accept=".html,.json" style="display:none;" onchange="importarBackup(event)">
+<script type="application/json" id="backup-embutido">{}</script>
 <p class="chapa-hint" style="padding:0 24px;">✏️ Toque na chapa de qualquer banca (mesmo parada) para editar — o nome do fundidor responsável é ajustado automaticamente pela chapa digitada. Salvo neste dispositivo.</p>
 <footer>Gerado automaticamente a partir da planilha escalas_producao.xlsx</footer>
 
 <script>
+// ---- Backup embutido no próprio arquivo: se essa cópia do HTML foi salva com dados
+// dentro dela (via "Gerar HTML com backup embutido") e este navegador ainda não tem
+// nada salvo, os dados embutidos são carregados automaticamente antes de tudo o resto.
+(function carregarBackupEmbutidoNaAbertura(){
+  try{
+    const tag = document.getElementById("backup-embutido");
+    if(!tag) return;
+    const dados = JSON.parse(tag.textContent || "{}");
+    if(!dados || Object.keys(dados).length === 0) return;
+    // só carrega automático se este navegador ainda não tem Dados Originais salvos
+    // (evita sobrescrever silenciosamente edições já feitas neste dispositivo)
+    if(localStorage.getItem("fixoData")) return;
+    Object.keys(dados).forEach(k=>{
+      try{ localStorage.setItem(k, dados[k]); }catch(e){}
+    });
+  }catch(e){}
+})();
+
 const AJ = {
   F: ["Leandro de Freitas Simoes","Rodrigo Carmo Barros","Carlos Henrique de Souza Sobrinho"],
   H: ["Renato Santos Ferreira","Nalberth Junior Raulino Santana","Carlos Eduardo Sampaio"],
@@ -706,20 +725,24 @@ function escalaHTML(g){
   html += `<div class="cols">
     <div class="col folga">
       <h3>🔴 Ajudantes de folga</h3>
-      <ul>${ajFolga.map(n=>`<li>${n}</li>`).join("")}</ul>
+      <ul>${ajFolga.map(n=>`<li>${n}${marcadorAtestadoPorNome(n, g)}</li>`).join("")}</ul>
     </div>
     <div class="col trab">
       <h3>🔵 Ajudantes trabalhando (${ajTrab.length})</h3>
-      <ul>${ajTrab.map(n=>`<li>${n}</li>`).join("")}</ul>
+      <ul>${ajTrab.map(n=>`<li>${n}${marcadorAtestadoPorNome(n, g)}</li>`).join("")}</ul>
     </div>
   </div>`;
 
   html += `<div class="table-wrap"><table><thead><tr><th>Banca</th><th>Chapa</th><th>Fundidor</th><th>Situação</th><th>Capacidade</th></tr></thead><tbody>`;
   eff.forEach(row=>{
     const {banca, chapa, nome, sit, cap} = row;
-    const cls = sit==="Fixo"?"row-Fixo":sit==="Folguista"?"row-Folguista":sit==="Ajustado"?"row-Folguista":sit==="Parada"?"row-Parada":"row-Semfolguista";
+    const atestado = atestadoAtivoNaEscala(chapa, g);
+    const cls = atestado ? "row-Atestado" : (sit==="Fixo"?"row-Fixo":sit==="Folguista"?"row-Folguista":sit==="Ajustado"?"row-Folguista":sit==="Parada"?"row-Parada":"row-Semfolguista");
     const chapaCell = `<span class="chapa-cell" contenteditable="true" data-escala="${g}" data-banca="${banca}">${chapa}</span>`;
-    html += `<tr class="${cls}"><td>${banca}</td><td>${chapaCell}</td><td>${nome}</td><td>${sit}${(sit==="Sem folguista"||sit==="Verificar")?' <span class="warn">⚠️</span>':''}</td><td>${cap||"-"}</td></tr>`;
+    const situacaoTexto = atestado
+      ? `🏥 Atestado<br>(volta ${formatarDataBR(dataRetornoAtestado(atestado))})`
+      : `${sit}${(sit==="Sem folguista"||sit==="Verificar")?' <span class="warn">⚠️</span>':''}`;
+    html += `<tr class="${cls}"><td>${banca}</td><td>${chapaCell}</td><td>${nome}</td><td>${situacaoTexto}</td><td>${cap||"-"}</td></tr>`;
   });
   html += `</tbody></table></div>`;
 
@@ -746,10 +769,11 @@ function resumoHTML(){
   html += `<button class="whatsapp-btn" onclick="copiarWhatsAppResumo()">📋 Copiar resumo para WhatsApp</button>
   <span id="copy-feedback-resumo" class="copy-feedback"></span>`;
   html += `<div style="display:flex;gap:6px;margin-bottom:8px;">
-    <button class="whatsapp-btn" style="margin:0;flex:1;" onclick="exportarBackup()">💾 Salvar backup em arquivo</button>
-    <button class="print-btn" style="margin:0;flex:1;" onclick="document.getElementById('input-importar-backup').click()">📂 Carregar backup</button>
+    <button class="whatsapp-btn" style="margin:0;flex:1;" onclick="gerarHtmlComBackupEmbutido()">📦 Gerar HTML com backup embutido</button>
+    <button class="print-btn" style="margin:0;flex:1;" onclick="carregarBackupEmbutidoManual()">📥 Carregar backup embutido</button>
   </div>
-  <p style="color:var(--muted);font-size:.68rem;margin:0 0 10px;">💾 "Salvar backup" baixa um arquivo .json com tudo que está salvo neste dispositivo (todas as abas: Dados Originais, Banco de Dados, chapas editadas). Guarde numa pasta segura. "Carregar backup" traz esses dados de volta.</p>`;
+  <span id="copy-feedback-embutido" class="copy-feedback"></span>
+  <p style="color:var(--muted);font-size:.68rem;margin:0 0 10px;">📦 Gera uma cópia deste app com os dados salvos AQUI DENTRO do próprio arquivo HTML — suba esse arquivo pro GitHub (substituindo o antigo) e os dados vão junto, sem precisar de backup separado. "Carregar backup embutido" puxa de volta os dados que estiverem guardados dentro deste arquivo específico.</p>`;
   html += `<div class="table-wrap"><table><thead><tr><th>Escala</th><th>Paradas</th><th>Produzindo</th><th>Produção (un/dia)</th></tr></thead><tbody>`;
   ["F","H","B","D"].forEach(g=>{
     const eff = effectiveRows(g);
@@ -790,6 +814,27 @@ function resumoHTML(){
   html += `<button id="btn-restauracao-global" class="reset-btn" style="margin-top:12px;" onclick="restauracaoGlobal()">🔄 Restauração Global (escalas F/H/B/D)</button>
   <p style="color:var(--muted);font-size:.68rem;margin:4px 0 0;">Reconstrói as 4 escalas do zero a partir da aba Dados Originais, descartando qualquer ajuste pontual feito direto nas escalas.</p>`;
 
+  html += reordenarAbasHTML();
+
+  return html;
+}
+
+function reordenarAbasHTML(){
+  let html = `<h2 style="margin-top:16px;">🔀 Reordenar abas</h2>
+  <p style="color:var(--muted);font-size:.7rem;margin:0 0 8px;">Muda a ordem em que as abas aparecem lá em cima. Fica salvo neste dispositivo.</p>`;
+  html += `<div class="table-wrap"><table><tbody>`;
+  secoesOrdenadas().forEach((s,idx)=>{
+    html += `<tr>
+      <td style="width:2rem;color:var(--muted);">${idx+1}º</td>
+      <td>${s.label}</td>
+      <td style="text-align:right;white-space:nowrap;">
+        <button class="print-btn" style="margin:0 2px 0 0;padding:4px 10px;" ${idx===0?"disabled":""} onclick="moverAba('${s.id}',-1)">▲</button>
+        <button class="print-btn" style="margin:0;padding:4px 10px;" ${idx===secoesOrdenadas().length-1?"disabled":""} onclick="moverAba('${s.id}',1)">▼</button>
+      </td>
+    </tr>`;
+  });
+  html += `</tbody></table></div>`;
+  html += `<button class="undo-btn" style="margin-top:6px;" onclick="restaurarOrdemAbasPadrao()">Restaurar ordem padrão</button>`;
   return html;
 }
 
@@ -840,6 +885,308 @@ try {
   AJ_EXTRAS = JSON.parse(localStorage.getItem("ajudanteExtras") || "{}");
 } catch(e){ AJ_EXTRAS = {}; }
 ["F","H","B","D"].forEach(g=>{ if(!AJ_EXTRAS[g]) AJ_EXTRAS[g] = []; });
+
+// ---- Atestados: chapa + dias afastado, pra marcar nas escalas F/H/B/D ----
+let ATESTADOS = [];
+try{
+  ATESTADOS = JSON.parse(localStorage.getItem("atestados") || "[]");
+}catch(e){ ATESTADOS = []; }
+
+function salvarAtestados(){
+  try{ localStorage.setItem("atestados", JSON.stringify(ATESTADOS)); }catch(e){}
+}
+
+function hojeSemHora(){
+  const h = new Date();
+  h.setHours(0,0,0,0);
+  return h;
+}
+
+// ---- Calendário de Folgas: escala 6x2, rodízio F → H → B → D → F..., 2 dias de folga por vez.
+// Âncora: a letra H folga em 31/07 e 01/08/2026 — todas as outras datas são calculadas a partir daí.
+const CICLO_LETRAS = ["F","H","B","D"];
+const DIAS_POR_JANELA_FOLGA = 2;
+const ANCORA_FOLGA_DATA = "2026-07-31";
+const ANCORA_FOLGA_LETRA = "H";
+
+function letraFolgaDoDia(dataStr){
+  const ancora = new Date(ANCORA_FOLGA_DATA+"T00:00:00");
+  const alvo = new Date(dataStr+"T00:00:00");
+  const diffDias = Math.round((alvo - ancora) / 86400000);
+  const cicloTotal = CICLO_LETRAS.length * DIAS_POR_JANELA_FOLGA;
+  const posicao = ((diffDias % cicloTotal) + cicloTotal) % cicloTotal;
+  const janela = Math.floor(posicao / DIAS_POR_JANELA_FOLGA);
+  const indiceAncora = CICLO_LETRAS.indexOf(ANCORA_FOLGA_LETRA);
+  const indiceLetra = (indiceAncora + janela) % CICLO_LETRAS.length;
+  return CICLO_LETRAS[indiceLetra];
+}
+
+const NOMES_MES = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+let calendarioAnoAtual = 2026;
+let calendarioMesAtual = 7; // Agosto (0-indexado)
+
+function mudarMesCalendario(delta){
+  calendarioMesAtual += delta;
+  if(calendarioMesAtual > 11){ calendarioMesAtual = 0; calendarioAnoAtual++; }
+  if(calendarioMesAtual < 0){ calendarioMesAtual = 11; calendarioAnoAtual--; }
+  const sec = document.getElementById("sec-calendario");
+  if(sec) sec.innerHTML = calendarioFolgasHTML();
+}
+
+function calendarioFolgasHTML(){
+  let html = `<h2>Calendário de Folgas (6x2)</h2>`;
+  html += `<p style="color:var(--muted);font-size:.72rem;margin:0 0 10px;">Rodízio F → H → B → D → F..., 2 dias de folga seguidos por letra. Baseado na folga da H em 31/07 e 01/08/2026.</p>`;
+
+  html += `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;">
+    <button class="print-btn" style="margin:0;padding:6px 14px;" onclick="mudarMesCalendario(-1)">◀</button>
+    <b style="font-size:.85rem;">${NOMES_MES[calendarioMesAtual]} de ${calendarioAnoAtual}</b>
+    <button class="print-btn" style="margin:0;padding:6px 14px;" onclick="mudarMesCalendario(1)">▶</button>
+  </div>`;
+
+  html += `<div class="table-wrap"><table style="text-align:center;"><thead><tr>
+    <th>Dom</th><th>Seg</th><th>Ter</th><th>Qua</th><th>Qui</th><th>Sex</th><th>Sáb</th>
+  </tr></thead><tbody><tr>`;
+
+  const primeiroDia = new Date(calendarioAnoAtual, calendarioMesAtual, 1);
+  const diaSemanaInicio = primeiroDia.getDay();
+  const diasNoMes = new Date(calendarioAnoAtual, calendarioMesAtual+1, 0).getDate();
+  const hoje = hojeSemHora();
+
+  let celula = 0;
+  for(let i=0;i<diaSemanaInicio;i++){ html += "<td></td>"; celula++; }
+  for(let dia=1; dia<=diasNoMes; dia++){
+    if(celula>0 && celula%7===0) html += "</tr><tr>";
+    const dataStr = `${calendarioAnoAtual}-${String(calendarioMesAtual+1).padStart(2,"0")}-${String(dia).padStart(2,"0")}`;
+    const letra = letraFolgaDoDia(dataStr);
+    const dataObj = new Date(calendarioAnoAtual, calendarioMesAtual, dia);
+    const ehHoje = dataObj.getTime() === hoje.getTime();
+    html += `<td style="padding:6px 2px;${ehHoje?'outline:2px solid #fff;border-radius:6px;':''}">
+      <div style="font-size:.68rem;color:var(--muted);">${dia}</div>
+      <span class="tag tag-${letra}" style="display:inline-block;margin-top:2px;min-width:20px;">${letra}</span>
+    </td>`;
+    celula++;
+  }
+  while(celula%7!==0){ html += "<td></td>"; celula++; }
+  html += "</tr></tbody></table></div>";
+
+  return html;
+}
+
+// Retorna o atestado ativo HOJE pra uma chapa, ou null se não tiver nenhum em vigor
+function atestadoAtivoHoje(chapa){
+  if(!chapa) return null;
+  const hoje = hojeSemHora();
+  return ATESTADOS.find(a=>{
+    if(a.chapa !== chapa) return false;
+    const inicio = new Date(a.dataInicio+"T00:00:00");
+    const fim = new Date(inicio);
+    fim.setDate(fim.getDate() + a.dias);
+    return hoje >= inicio && hoje < fim;
+  }) || null;
+}
+
+// Usa o Calendário de Folgas pra achar a próxima data (hoje ou futura) em que a
+// letra g é de fato a folga do dia — cada escala só "acontece" nessas datas.
+function proximaDataDaEscala(g){
+  const hoje = hojeSemHora();
+  for(let i=0;i<8;i++){
+    const d = new Date(hoje);
+    d.setDate(d.getDate()+i);
+    const dataStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+    if(letraFolgaDoDia(dataStr) === g) return d;
+  }
+  return hoje;
+}
+
+// Verifica o atestado de uma chapa não em "hoje" cru, mas na data em que a escala g
+// realmente está em vigor pelo calendário — assim cada aba (F/H/B/D) fica coerente
+// com o dia certo do rodízio, em vez de todas mostrarem o status de hoje igualzinho.
+function atestadoAtivoNaEscala(chapa, g){
+  if(!chapa) return null;
+  const dataAlvo = proximaDataDaEscala(g);
+  return ATESTADOS.find(a=>{
+    if(a.chapa !== chapa) return false;
+    const inicio = new Date(a.dataInicio+"T00:00:00");
+    const fim = new Date(inicio);
+    fim.setDate(fim.getDate() + a.dias);
+    return dataAlvo >= inicio && dataAlvo < fim;
+  }) || null;
+}
+
+// Mesma checagem, mas pelo NOME — usada nas listas de ajudantes (que às vezes não têm chapa)
+function atestadoAtivoNaEscalaPorNome(nome, g){
+  if(!nome) return null;
+  const alvoNome = normalizaNome(nome);
+  const dataAlvo = proximaDataDaEscala(g);
+  return ATESTADOS.find(a=>{
+    if(normalizaNome(a.nome) !== alvoNome) return false;
+    const inicio = new Date(a.dataInicio+"T00:00:00");
+    const fim = new Date(inicio);
+    fim.setDate(fim.getDate() + a.dias);
+    return dataAlvo >= inicio && dataAlvo < fim;
+  }) || null;
+}
+
+// Monta o texto "🏥 Atestado (volta dd/mm/aaaa)" pra um nome, ou string vazia se não tiver
+function marcadorAtestadoPorNome(nome, g){
+  const atestado = atestadoAtivoNaEscalaPorNome(nome, g);
+  if(!atestado) return "";
+  return ` <span style="color:var(--special);font-weight:700;">🏥 Atestado (volta ${formatarDataBR(dataRetornoAtestado(atestado))})</span>`;
+}
+
+function diasRestantesAtestado(atestado){
+  const inicio = new Date(atestado.dataInicio+"T00:00:00");
+  const fim = new Date(inicio);
+  fim.setDate(fim.getDate() + atestado.dias);
+  return Math.ceil((fim - hojeSemHora()) / 86400000);
+}
+
+// Data em que a pessoa volta a trabalhar: início + dias corridos de atestado
+function dataRetornoAtestado(atestado){
+  const inicio = new Date(atestado.dataInicio+"T00:00:00");
+  const retorno = new Date(inicio);
+  retorno.setDate(retorno.getDate() + atestado.dias);
+  return retorno;
+}
+
+function formatarDataBR(d){
+  return String(d.getDate()).padStart(2,"0") + "/" + String(d.getMonth()+1).padStart(2,"0") + "/" + d.getFullYear();
+}
+
+// Força o recálculo de tudo que depende da data de hoje (atestados nas escalas etc.)
+function recalcularAtestadosNasEscalas(){
+  ultimoDiaRenderizado = hojeSemHora().getTime();
+  renderAll();
+  showSection(activeTab);
+  const btn = document.getElementById("btn-recalcular-atestados");
+  if(btn){
+    const original = "🔄 Recalcular atestados nas escalas";
+    btn.textContent = "✅ Escalas atualizadas!";
+    setTimeout(()=>{ btn.textContent = original; }, 1800);
+  }
+}
+
+// Aceita tanto uma chapa quanto um nome (completo ou parcial) digitado no campo
+// de atestado, e resolve pra chapa (ou, se a pessoa não tiver chapa cadastrada —
+// comum entre ajudantes — usa o nome como identificador mesmo).
+// Retorna {chapa}, {nome, grupo, semChapa:true}, {ambiguo:true, opcoes} ou {}.
+function resolverChapaOuNomeAtestado(valor){
+  if(!valor) return {};
+  const v = valor.trim();
+
+  // 1) já é uma chapa conhecida?
+  if(NOME_POR_CHAPA[v] || NOME_POR_CHAPA_ORIGINAL[v]) return {chapa: v};
+
+  const alvo = normalizaNome(v);
+
+  // 2) bate exatamente com um nome cadastrado no Banco de Dados (com ou sem chapa)
+  const exatos = BANCO_DADOS_LISTA.filter(p => normalizaNome(p.nome) === alvo);
+  if(exatos.length === 1){
+    return exatos[0].chapa ? {chapa: exatos[0].chapa} : {nome: exatos[0].nome, grupo: exatos[0].grupo, semChapa: true};
+  }
+  if(exatos.length > 1) return {ambiguo: true, opcoes: exatos};
+
+  // 3) busca parcial por nome (contém o texto digitado, sem acento/maiúsculas)
+  const candidatos = BANCO_DADOS_LISTA.filter(p => normalizaNome(p.nome).includes(alvo));
+  if(candidatos.length === 1){
+    const p = candidatos[0];
+    return p.chapa ? {chapa: p.chapa} : {nome: p.nome, grupo: p.grupo, semChapa: true};
+  }
+  if(candidatos.length > 1) return {ambiguo: true, opcoes: candidatos};
+  return {};
+}
+
+function adicionarAtestado(){
+  const chapaInput = document.getElementById("at-chapa");
+  const diasInput = document.getElementById("at-dias");
+  const valorDigitado = chapaInput.value.trim();
+  const dias = parseInt(diasInput.value, 10);
+  // o primeiro dia do atestado é sempre o dia do lançamento (hoje)
+  const dataInicio = new Date().toISOString().slice(0,10);
+
+  if(!valorDigitado || !dias || dias <= 0){
+    alert("Preencha chapa ou nome, e a quantidade de dias (maior que zero).");
+    return;
+  }
+
+  const resultado = resolverChapaOuNomeAtestado(valorDigitado);
+  if(resultado.ambiguo){
+    alert("Mais de uma pessoa bate com esse nome:\n" + resultado.opcoes.map(p=>`${p.chapa || "sem chapa"} — ${p.nome}`).join("\n") + "\n\nDigite o nome completo (ou a chapa) pra continuar.");
+    return;
+  }
+  if(!resultado.chapa && !resultado.nome){
+    alert(`Não encontrei ninguém com a chapa/nome "${valorDigitado}". Confira o Banco de Dados.`);
+    return;
+  }
+
+  let chapa, nome, grupo;
+  if(resultado.semChapa){
+    chapa = "";
+    nome = resultado.nome;
+    grupo = resultado.grupo || null;
+  } else {
+    chapa = resultado.chapa;
+    nome = NOME_POR_CHAPA[chapa] || NOME_POR_CHAPA_ORIGINAL[chapa] || "(nome não encontrado pra essa chapa)";
+    grupo = GRUPO_ORIGINAL_POR_CHAPA[chapa] || null;
+  }
+
+  ATESTADOS.push({id: Date.now(), chapa, nome, grupo, dias, dataInicio});
+  salvarAtestados();
+
+  chapaInput.value = "";
+  diasInput.value = "";
+
+  renderAll();
+  showSection(activeTab);
+}
+
+function removerAtestado(id){
+  ATESTADOS = ATESTADOS.filter(a=>a.id!==id);
+  salvarAtestados();
+  renderAll();
+  showSection(activeTab);
+}
+
+function atestadosHTML(){
+  let html = `<h2>Atestados</h2>`;
+  html += `<p style="color:var(--muted);font-size:.72rem;margin:0 0 10px;">Cadastre a chapa OU o nome (com autocomplete) e a quantidade de dias — o restante (nome, chapa, letra da escala com a cor certa) é identificado automaticamente. O 1º dia do atestado é sempre o dia do lançamento (hoje). Enquanto o período estiver em vigor, a banca aparece marcada como "🏥 Atestado" nas escalas F/H/B/D.</p>`;
+
+  html += `<div class="add-ajudante">
+    <input type="text" id="at-chapa" list="at-sugestoes" placeholder="Chapa ou nome..." style="max-width:160px;background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:.72rem;">
+    <datalist id="at-sugestoes">
+      ${BANCO_DADOS_LISTA.map(p=>`<option value="${p.nome.replace(/"/g,'&quot;')}">${p.chapa || "sem chapa"} — ${p.nome}</option>`).join("")}
+    </datalist>
+    <input type="number" id="at-dias" placeholder="Dias" min="1" style="max-width:70px;background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:.72rem;">
+    <button class="add-btn" onclick="adicionarAtestado()">+ Adicionar</button>
+  </div>
+  <button id="btn-recalcular-atestados" class="reset-btn" style="margin-top:6px;" onclick="recalcularAtestadosNasEscalas()">🔄 Recalcular atestados nas escalas</button>
+  <p style="color:var(--muted);font-size:.68rem;margin:4px 0 10px;">O app já recalcula sozinho quando o dia muda ou quando você reabre o app, mas esse botão força a atualização na hora, se precisar conferir agora.</p>`;
+
+  html += `<div class="table-wrap"><table><thead><tr><th>Grupo</th><th>Chapa</th><th>Fundidor</th><th>Início</th><th>Dias</th><th>Retorno</th><th>Situação</th><th></th></tr></thead><tbody>`;
+  const hoje = hojeSemHora();
+  const lista = ATESTADOS.slice().sort((a,b)=>a.dataInicio.localeCompare(b.dataInicio));
+  if(lista.length === 0){
+    html += `<tr><td colspan="8" style="color:var(--muted);text-align:center;">Nenhum atestado cadastrado.</td></tr>`;
+  }
+  lista.forEach(a=>{
+    const inicio = new Date(a.dataInicio+"T00:00:00");
+    const diasRestantes = diasRestantesAtestado(a);
+    let situacao;
+    if(hoje < inicio){
+      situacao = `Começa em ${Math.ceil((inicio-hoje)/86400000)} dia(s)`;
+    } else if(diasRestantes > 0){
+      situacao = `🏥 Em atestado (${diasRestantes} dia(s) restante(s))`;
+    } else {
+      situacao = `✅ Encerrado`;
+    }
+    const dataFmt = a.dataInicio.split("-").reverse().join("/");
+    const retornoFmt = formatarDataBR(dataRetornoAtestado(a));
+    const tagGrupo = a.grupo ? `<span class="tag tag-${a.grupo}">${a.grupo}</span>` : `<span class="tag tag-Especial">?</span>`;
+    html += `<tr><td>${tagGrupo}</td><td>${a.chapa || '<span style="color:var(--muted);">sem chapa</span>'}</td><td>${a.nome}</td><td>${dataFmt}</td><td>${a.dias}</td><td><b>${retornoFmt}</b></td><td>${situacao}</td><td><span class="del-btn" onclick="removerAtestado(${a.id})">✕</span></td></tr>`;
+  });
+  html += `</tbody></table></div>`;
+  return html;
+}
 
 // Ajudantes cadastrados no Banco de Dados pra um grupo — lido ao vivo, então
 // qualquer mudança lá (adicionar, trocar tipo/grupo, remover) já reflete aqui.
@@ -930,14 +1277,14 @@ function ajudantesListaHTML(){
     nomesOriginais.forEach(nome=>{
       html += `<tr class="ajrow-${g}">
         <td>${primeiro ? `<span class="tag tag-${g}">${g}</span>` : ""}</td>
-        <td>${nome}</td>
+        <td>${nome}${marcadorAtestadoPorNome(nome, g)}</td>
       </tr>`;
       primeiro = false;
     });
     nomesExtras.forEach((nome,idx)=>{
       html += `<tr class="ajrow-${g}">
         <td>${primeiro ? `<span class="tag tag-${g}">${g}</span>` : ""}</td>
-        <td>${nome} <span class="tag-extra">extra</span> <span class="del-btn" onclick="removerAjudanteExtra('${g}',${idx})">✕</span></td>
+        <td>${nome} <span class="tag-extra">extra</span> <span class="del-btn" onclick="removerAjudanteExtra('${g}',${idx})">✕</span>${marcadorAtestadoPorNome(nome, g)}</td>
       </tr>`;
       primeiro = false;
     });
@@ -1740,7 +2087,9 @@ const SECOES = [
   {id:"H", label:"Escala H", render:()=>escalaHTML("H")},
   {id:"B", label:"Escala B", render:()=>escalaHTML("B")},
   {id:"D", label:"Escala D", render:()=>escalaHTML("D")},
+  {id:"calendario", label:"Calendário de Folgas", render:calendarioFolgasHTML},
   {id:"ajudantes", label:"Lista Ajudantes", render:ajudantesListaHTML},
+  {id:"atestados", label:"Atestados", render:atestadosHTML},
   {id:"original", label:"Dados Originais", render:dadosOriginaisHTML},
   {id:"bancodados", label:"Banco de Dados", render:bancoDadosHTML},
 ];
@@ -1774,34 +2123,98 @@ const SECOES = [
 const tabsEl = document.getElementById("tabs");
 const mainEl = document.getElementById("main");
 
-SECOES.forEach((s,i)=>{
-  const btn = document.createElement("button");
-  btn.textContent = s.label;
-  btn.onclick = ()=>showSection(s.id);
-  btn.id = "tab-"+s.id;
-  tabsEl.appendChild(btn);
+// ---- Ordem das abas (personalizável pelo usuário) ----
+let ORDEM_ABAS = SECOES.map(s=>s.id);
+try{
+  const salva = JSON.parse(localStorage.getItem("ordemAbas") || "null");
+  if(Array.isArray(salva) && salva.length){
+    // mantém só ids que ainda existem no app, e adiciona no fim qualquer aba nova que não estava salva
+    const validos = salva.filter(id => SECOES.some(s=>s.id===id));
+    const faltando = SECOES.map(s=>s.id).filter(id => !validos.includes(id));
+    ORDEM_ABAS = validos.concat(faltando);
+  }
+}catch(e){}
 
-  const sec = document.createElement("section");
-  sec.id = "sec-"+s.id;
-  sec.innerHTML = s.render();
-  mainEl.appendChild(sec);
-});
+function salvarOrdemAbas(){
+  try{ localStorage.setItem("ordemAbas", JSON.stringify(ORDEM_ABAS)); }catch(e){}
+}
+
+function secoesOrdenadas(){
+  return ORDEM_ABAS.map(id => SECOES.find(s=>s.id===id)).filter(Boolean);
+}
+
+function moverAba(id, delta){
+  const idx = ORDEM_ABAS.indexOf(id);
+  const novoIdx = idx + delta;
+  if(idx===-1 || novoIdx < 0 || novoIdx >= ORDEM_ABAS.length) return;
+  [ORDEM_ABAS[idx], ORDEM_ABAS[novoIdx]] = [ORDEM_ABAS[novoIdx], ORDEM_ABAS[idx]];
+  salvarOrdemAbas();
+  reconstruirNav();
+}
+
+function restaurarOrdemAbasPadrao(){
+  ORDEM_ABAS = SECOES.map(s=>s.id);
+  salvarOrdemAbas();
+  reconstruirNav();
+}
+
+function reconstruirNav(){
+  tabsEl.innerHTML = "";
+  mainEl.innerHTML = "";
+  secoesOrdenadas().forEach(s=>{
+    const btn = document.createElement("button");
+    btn.textContent = s.label;
+    btn.onclick = ()=>showSection(s.id);
+    btn.id = "tab-"+s.id;
+    tabsEl.appendChild(btn);
+
+    const sec = document.createElement("section");
+    sec.id = "sec-"+s.id;
+    sec.innerHTML = s.render();
+    mainEl.appendChild(sec);
+  });
+  showSection(activeTab);
+}
 
 function renderAll(){
   SECOES.forEach(s=>{
-    document.getElementById("sec-"+s.id).innerHTML = s.render();
+    const el = document.getElementById("sec-"+s.id);
+    if(el) el.innerHTML = s.render();
   });
 }
 
 let activeTab = "resumo";
+let ultimoDiaRenderizado = hojeSemHora().getTime();
+
+// Se o dia virou desde a última vez que a tela foi montada, recalcula tudo
+// (situação de atestado, "de folga hoje" etc. dependem da data de hoje)
+function atualizarSeDiaVirou(){
+  const hojeAgora = hojeSemHora().getTime();
+  if(hojeAgora !== ultimoDiaRenderizado){
+    ultimoDiaRenderizado = hojeAgora;
+    renderAll();
+    return true;
+  }
+  return false;
+}
+
 function showSection(id){
+  atualizarSeDiaVirou();
   activeTab = id;
   document.querySelectorAll("nav button").forEach(b=>b.classList.remove("active"));
   document.querySelectorAll("main section").forEach(s=>s.classList.remove("active"));
   document.getElementById("tab-"+id).classList.add("active");
   document.getElementById("sec-"+id).classList.add("active");
 }
-showSection("resumo");
+
+reconstruirNav();
+
+// cobre o caso do celular: app ficou aberto em segundo plano e a pessoa volta pra ele num dia diferente
+document.addEventListener("visibilitychange", function(){
+  if(document.visibilityState === "visible"){
+    if(atualizarSeDiaVirou()) showSection(activeTab);
+  }
+});
 
 mainEl.addEventListener("focusin", function(e){
   if(!e.target.classList.contains("chapa-cell")) return;
@@ -2075,11 +2488,15 @@ const CHAVES_BACKUP = [
   "fixoData","folguistaData","fixoDataBaseline","folguistaDataBaseline",
   "bancoDadosLista","bancoDadosPadrao",
   "chapaOverrides","bancaOverrides","ajudanteExtras","historicoChapas",
-  "folguistaGrupoProprio","grupoOriginalPorNome","grupoOriginalPorChapa","listaFundidoresExtras"
+  "folguistaGrupoProprio","grupoOriginalPorNome","grupoOriginalPorChapa","listaFundidoresExtras",
+  "atestados"
 ];
 
-function exportarBackup(){
-  const fb = document.getElementById("copy-feedback-resumo");
+// Gera uma cópia completa deste app (mesmo HTML) com os dados atuais gravados
+// dentro da tag oculta #backup-embutido — assim, ao subir esse arquivo pro GitHub,
+// os dados viajam junto dentro do próprio HTML, sem precisar de arquivo separado.
+function gerarHtmlComBackupEmbutido(){
+  const fb = document.getElementById("copy-feedback-embutido");
   const dados = {};
   let algumDado = false;
   CHAVES_BACKUP.forEach(k=>{
@@ -2088,98 +2505,97 @@ function exportarBackup(){
   });
 
   if(!algumDado){
-    if(fb) fb.textContent = "⚠️ Não há nada salvo neste dispositivo ainda pra fazer backup.";
+    if(fb) fb.textContent = "⚠️ Não há nada salvo neste dispositivo ainda pra embutir.";
     return;
   }
 
   try{
-    const conteudoJson = JSON.stringify(dados, null, 2);
+    const tag = document.getElementById("backup-embutido");
+    const tagAnterior = tag ? tag.textContent : null;
+    if(tag) tag.textContent = JSON.stringify(dados);
+
+    const conteudoHtml = "<!DOCTYPE html>\n" + document.documentElement.outerHTML;
+
+    // devolve a tag ao estado anterior na página aberta agora (não precisa carregar o próprio backup nela mesma)
+    if(tag && tagAnterior !== null) tag.textContent = tagAnterior;
+
     const dataStr = new Date().toISOString().slice(0,10);
-    const nomeArquivo = `escalas_backup_${dataStr}.html`;
-    const conteudoHtml = `<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-<meta charset="UTF-8">
-<title>Backup Escalas GAROL — ${dataStr}</title>
-<style>
-  body{font-family:Arial,sans-serif;background:#0f1115;color:#e8e8ea;padding:20px;}
-  h1{font-size:1.1rem;}
-  p{color:#9aa0aa;font-size:.85rem;}
-  pre{background:#171a21;border:1px solid #2a2f38;border-radius:8px;padding:14px;overflow-x:auto;font-size:.8rem;white-space:pre-wrap;word-break:break-word;}
-</style>
-</head>
-<body>
-<h1>💾 Backup — Escalas GAROL (${dataStr})</h1>
-<p>Este arquivo guarda uma cópia dos dados salvos no app (Dados Originais, Banco de Dados, chapas editadas). Pra usar, abra o app e toque em "Carregar backup", escolhendo este arquivo.</p>
-<pre id="backup-data">${conteudoJson.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}</pre>
-</body>
-</html>`;
+    const nomeArquivo = `index.html`;
 
-    if(navigator.msSaveBlob){
+    function baixarPeloMetodoTradicional(){
       const blob = new Blob([conteudoHtml], {type:"text/html"});
-      navigator.msSaveBlob(blob, nomeArquivo);
-    } else {
-      const blob = new Blob([conteudoHtml], {type:"text/html"});
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = nomeArquivo;
-      a.rel = "noopener";
-      a.style.display = "none";
-      document.body.appendChild(a);
-      a.click();
-      setTimeout(()=>{
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      }, 1500);
+      if(navigator.msSaveBlob){
+        navigator.msSaveBlob(blob, nomeArquivo);
+      } else {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = nomeArquivo;
+        a.rel = "noopener";
+        a.style.display = "none";
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(()=>{
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }, 1500);
+      }
+      if(fb) fb.textContent = `✅ ${nomeArquivo} gerado com os dados embutidos (${dataStr}) — suba esse arquivo pro GitHub no lugar do antigo.`;
     }
 
-    if(fb){
-      fb.textContent = `✅ Backup gerado: ${nomeArquivo} — confere a pasta Downloads do celular (ou a notificação do Chrome).`;
+    if(window.showSaveFilePicker){
+      (async ()=>{
+        try{
+          const handle = await window.showSaveFilePicker({
+            suggestedName: nomeArquivo,
+            types: [{ description: "Página HTML", accept: {"text/html": [".html"]} }]
+          });
+          const writable = await handle.createWritable();
+          await writable.write(conteudoHtml);
+          await writable.close();
+          if(fb) fb.textContent = `✅ ${nomeArquivo} salvo com os dados embutidos (${dataStr}).`;
+        }catch(err){
+          if(err && err.name === "AbortError") return;
+          baixarPeloMetodoTradicional();
+        }
+      })();
+      return;
     }
+
+    baixarPeloMetodoTradicional();
   }catch(err){
     if(fb) fb.textContent = "⚠️ Não consegui gerar o arquivo. Erro: " + (err && err.message ? err.message : err);
   }
 }
 
-function importarBackup(event){
-  const file = event.target.files[0];
-  if(!file) return;
-  const reader = new FileReader();
-  reader.onload = function(e){
-    let conteudo = e.target.result;
-
-    // se for um backup em .html, extrai o JSON de dentro da tag <pre id="backup-data">
-    const marcador = /<pre id="backup-data">([\s\S]*?)<\/pre>/;
-    const match = conteudo.match(marcador);
-    if(match){
-      conteudo = match[1]
-        .replace(/&amp;/g, "&")
-        .replace(/&lt;/g, "<")
-        .replace(/&gt;/g, ">");
+// Carrega manualmente os dados que estiverem guardados na tag oculta #backup-embutido
+// deste arquivo específico — útil quando o navegador já tem outros dados salvos e
+// por isso o carregamento automático na abertura não rodou sozinho.
+function carregarBackupEmbutidoManual(){
+  const fb = document.getElementById("copy-feedback-embutido");
+  const tag = document.getElementById("backup-embutido");
+  let dados;
+  try{
+    dados = JSON.parse(tag ? (tag.textContent || "{}") : "{}");
+  }catch(err){
+    if(fb) fb.textContent = "⚠️ O backup embutido neste arquivo está corrompido.";
+    return;
+  }
+  if(!dados || Object.keys(dados).length === 0){
+    if(fb) fb.textContent = "⚠️ Este arquivo não tem nenhum backup embutido nele.";
+    return;
+  }
+  if(!confirm("Isso vai substituir os dados salvos neste dispositivo pelos dados embutidos neste arquivo HTML. Continuar?")){
+    return;
+  }
+  let importados = 0;
+  Object.keys(dados).forEach(k=>{
+    if(CHAVES_BACKUP.includes(k)){
+      try{ localStorage.setItem(k, dados[k]); importados++; }catch(err){}
     }
-
-    let dados;
-    try{
-      dados = JSON.parse(conteudo);
-    }catch(err){
-      alert("Esse arquivo não é um backup válido.");
-      return;
-    }
-    if(!confirm("Isso vai substituir os dados salvos neste dispositivo pelos dados do backup. Continuar?")){
-      return;
-    }
-    let importados = 0;
-    Object.keys(dados).forEach(k=>{
-      if(CHAVES_BACKUP.includes(k)){
-        try{ localStorage.setItem(k, dados[k]); importados++; }catch(err){}
-      }
-    });
-    alert(`${importados} item(ns) importado(s)! A página vai recarregar agora.`);
-    location.reload();
-  };
-  reader.readAsText(file);
-  event.target.value = "";
+  });
+  alert(`${importados} item(ns) importado(s) do backup embutido! A página vai recarregar agora.`);
+  location.reload();
 }
 
 // Corrige chapa/nome em Dados Originais (FIXO_DATA/FOLGUISTA_DATA) usando o cadastro
