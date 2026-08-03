@@ -1,0 +1,3712 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+<title>Escalas de Produção — GAROL</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#171a21; --panel2:#1e2229; --text:#e8e8ea; --muted:#9aa0aa;
+    --F:#5b8bd0; --H:#c96b6b; --B:#7fa650; --D:#d98a3d; --special:#c9b458;
+    --border:#2a2f38;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:'Segoe UI',Arial,sans-serif;-webkit-text-size-adjust:100%;}
+  header{padding:8px 8px 5px;border-bottom:1px solid var(--border);}
+  header h1{margin:0 0 2px;font-size:.95rem;line-height:1.25;}
+  header p{margin:0;color:var(--muted);font-size:.68rem;}
+  nav{display:flex;gap:4px;padding:6px 8px;background:var(--panel);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:10;
+      overflow-x:auto;-webkit-overflow-scrolling:touch;flex-wrap:nowrap;scrollbar-width:thin;}
+  nav button{background:var(--panel2);color:var(--text);border:1px solid var(--border);padding:6px 10px;border-radius:5px;cursor:pointer;font-size:.7rem;flex:0 0 auto;white-space:nowrap;}
+  nav button.active{background:#3a4150;border-color:#5a6474;font-weight:600;}
+  main{padding:4px 4px 6px;max-width:1000px;margin:0 auto;}
+  section{display:none;}
+  section.active{display:block;}
+  h2{font-size:.9rem;margin:0 0 8px;border-bottom:2px solid var(--border);padding-bottom:5px;}
+  .tag{display:inline-block;padding:1px 7px;border-radius:10px;font-weight:700;font-size:.62rem;color:#111;}
+  .tag-F{background:var(--F);color:#fff;} .tag-H{background:var(--H);color:#fff;}
+  .tag-B{background:var(--B);color:#fff;} .tag-D{background:var(--D);color:#fff;}
+  .tag-Especial{background:var(--special);}
+  .table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:8px 0 16px;border-radius:5px;}
+  table{width:100%;min-width:320px;border-collapse:collapse;font-size:.64rem;}
+  th,td{padding:4px 5px;border:1px solid var(--border);text-align:left;white-space:nowrap;}
+  td:nth-child(3){white-space:normal;}
+  th{background:var(--panel2);position:sticky;top:0;}
+  .kpis{display:flex;gap:4px;flex-wrap:wrap;margin:6px 0 10px;}
+  .kpi{background:var(--panel);border:1px solid var(--border);border-radius:5px;padding:5px 8px;flex:1 1 62px;min-width:62px;}
+  .kpi .n{font-size:.9rem;font-weight:700;}
+  .kpi .l{color:var(--muted);font-size:.55rem;line-height:1.2;}
+  .cols{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;}
+  .col{flex:1 1 100%;min-width:0;border-radius:6px;padding:8px 10px;}
+  .col.folga{background:#2a1616;border:1px solid #4a2323;}
+  .col.trab{background:#131f2c;border:1px solid #234058;}
+  .col h3{margin:0 0 5px;font-size:.72rem;}
+  .col ul{margin:0;padding-left:14px;font-size:.68rem;line-height:1.5;}
+  .row-Fixo{background:rgba(91,139,208,.10);}
+  .row-Folguista{background:rgba(255,200,80,.10);}
+  .row-Parada{background:rgba(255,255,255,.04);color:var(--muted);}
+  .row-Semfolguista{background:rgba(217,86,86,.20);font-weight:600;}
+  .row-Atestado{background:rgba(201,180,88,.22);font-weight:600;}
+  .ajrow-F{background:rgba(91,139,208,.18);}
+  .ajrow-H{background:rgba(201,107,107,.18);}
+  .ajrow-B{background:rgba(127,166,80,.18);}
+  .ajrow-D{background:rgba(217,138,61,.18);}
+
+  .filtro-letras{display:flex;gap:4px;margin-bottom:10px;flex-wrap:wrap;}
+  .filtro-btn{background:var(--panel2);color:var(--text);border:1px solid var(--border);padding:6px 12px;border-radius:5px;cursor:pointer;font-size:.72rem;font-weight:600;}
+  .filtro-btn.active{color:#fff;border-color:transparent;}
+  .filtro-btn.filtro-F.active{background:var(--F);}
+  .filtro-btn.filtro-H.active{background:var(--H);}
+  .filtro-btn.filtro-B.active{background:var(--B);}
+  .filtro-btn.filtro-D.active{background:var(--D);}
+  .filtro-btn.filtro-Todos.active{background:#4a5160;}
+
+  .add-ajudante{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:10px;}
+  .add-ajudante input{flex:1;min-width:120px;background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:5px;padding:6px 8px;font-size:.72rem;}
+  .add-ajudante select{background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:5px;padding:6px 6px;font-size:.72rem;}
+  .add-btn{background:#1f2f45;color:#8fb4dc;border:1px solid #2f4e6b;padding:6px 10px;border-radius:5px;cursor:pointer;font-size:.72rem;white-space:nowrap;}
+  .tag-extra{display:inline-block;background:#3a3320;color:#d9b968;font-size:.58rem;padding:1px 5px;border-radius:7px;margin-left:4px;}
+  .del-btn{color:#e88;cursor:pointer;margin-left:6px;font-weight:700;display:inline-block;padding:6px 10px;min-width:20px;text-align:center;}
+  .warn{color:#e88;font-weight:600;}
+  .chapa-cell{border-bottom:1px dashed #6a7484;cursor:text;padding:2px 4px;border-radius:3px;display:inline-block;min-width:22px;min-height:16px;font-size:1.05rem;font-weight:700;}
+  .chapa-cell:focus{outline:2px solid #5b8bd0;background:#22293a;}
+  .chapa-highlight{background:#ffe066 !important;color:#111 !important;outline:2px solid #d9b968;font-weight:900;}
+  .chapa-hint{color:var(--muted);font-size:.62rem;margin:8px 0 10px;line-height:1.3;}
+  .reset-btn{background:#3a2323;color:#e88;border:1px solid #5a3333;padding:10px 12px;border-radius:6px;cursor:pointer;font-size:.75rem;margin-bottom:10px;flex:1;}
+  .undo-btn{background:#1f2f45;color:#8fb4dc;border:1px solid #2f4e6b;padding:10px 12px;border-radius:6px;cursor:pointer;font-size:.75rem;margin-bottom:10px;flex:1;}
+  .reset-btn.confirm-pending{background:#e88;color:#3a2323;font-weight:700;}
+  .whatsapp-btn{background:#1f3d2b;color:#6fdc8c;border:1px solid #2f6b45;padding:7px 12px;border-radius:5px;cursor:pointer;font-size:.7rem;width:100%;margin-bottom:5px;}
+  .print-btn{background:#2a2a3d;color:#a9a9f0;border:1px solid #45456b;padding:7px 12px;border-radius:5px;cursor:pointer;font-size:.7rem;width:100%;margin-bottom:5px;}
+  .copy-feedback{display:block;color:#6fdc8c;font-size:.68rem;min-height:1.1em;margin-bottom:8px;}
+  .aj-F{background:var(--F);color:#fff;} .aj-H{background:var(--H);color:#fff;}
+  .aj-B{background:var(--B);color:#fff;} .aj-D{background:var(--D);color:#fff;}
+  footer{padding:10px;color:var(--muted);font-size:.62rem;text-align:center;}
+
+  @media (min-width:640px){
+    header{padding:20px 24px 8px;}
+    header h1{font-size:1.4rem;}
+    header p{font-size:.85rem;}
+    nav{padding:12px 24px;flex-wrap:wrap;overflow-x:visible;}
+    main{padding:20px 24px 60px;}
+    h2{font-size:1.2rem;}
+    table{font-size:.88rem;}
+    .col{flex:1;min-width:260px;}
+    .whatsapp-btn{width:auto;}
+    .print-btn{width:auto;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Escalas de Produção — Fundição GAROL</h1>
+  <p>Fundidores, folguistas e ajudantes por escala (F / H / B / D) — capacidade 68 un/dia por banca (G25 = 70)</p>
+</header>
+
+<nav id="tabs"></nav>
+<main id="main"></main>
+<script type="application/json" id="backup-embutido">{}</script>
+<p class="chapa-hint" style="padding:0 24px;">✏️ Toque na chapa de qualquer banca (mesmo parada) para editar — o nome do fundidor responsável é ajustado automaticamente pela chapa digitada. Salvo neste dispositivo.</p>
+<footer>Gerado automaticamente a partir da planilha escalas_producao.xlsx</footer>
+
+<script>
+// ---- Backup embutido no próprio arquivo: se essa cópia do HTML foi salva com dados
+// dentro dela (via "Gerar HTML com backup embutido") e este navegador ainda não tem
+// nada salvo, os dados embutidos são carregados automaticamente antes de tudo o resto.
+(function carregarBackupEmbutidoNaAbertura(){
+  try{
+    const tag = document.getElementById("backup-embutido");
+    if(!tag) return;
+    const dados = JSON.parse(tag.textContent || "{}");
+    if(!dados || Object.keys(dados).length === 0) return;
+    // só carrega automático se este navegador ainda não tem Dados Originais salvos
+    // (evita sobrescrever silenciosamente edições já feitas neste dispositivo)
+    if(localStorage.getItem("fixoData")) return;
+    Object.keys(dados).forEach(k=>{
+      try{ localStorage.setItem(k, dados[k]); }catch(e){}
+    });
+  }catch(e){}
+})();
+
+const AJ = {
+  F: ["Leandro de Freitas Simoes","Rodrigo Carmo Barros","Carlos Henrique de Souza Sobrinho"],
+  H: ["Renato Santos Ferreira","Nalberth Junior Raulino Santana","Carlos Eduardo Sampaio"],
+  B: ["Uellison Costa de Jesus","Lucas Costa Santos","Luiz Ricardo Pereira de Jesus","Alexsandro Pereira Cerqueira"],
+  D: ["Emawxuell da Silva Chaves","Erick Augusto Borel do Amaral"]
+};
+
+const FOLGA_NOMES = {
+  F: ["Alexandre Brito","Ricardo de Jesus Amorim","Gilsimar Pereira Duarte"],
+  H: ["Marcos Aurelio de Sousa Paes","Adailson Coutinho Rodrigues","Tiago dos Santos","Marcos Vinicius de Souza Archanjo","Diego dos Santos Guimaraes","Ryalisson Rodrigues Simoes"],
+  B: ["Felipe Santos Moreira","Jose Matim Aliprandi Santos","Eduardo dos Santos Martins","Gustavo Barreto de Carvalho","Jean Guilherme Mendes Batista"],
+  D: ["Ismael Miranda dos Santos","Matheus de Souza Almeida","Antonio Marcos Cantao Ferreira","Gustavo Tonni Armondes Amorin","Lucas Ferreira Santos","Edson Francisco da Silva","Jose Carvalho dos Santos"]
+};
+const SEM_BANCA_FOLGA = {
+  F: ["Ronilson de Jesus da Silva","Robson de Jesus Nascimento","Carlos Andre Santana","Diego Souza Nogueira"],
+  H: [],
+  B: ["Leones de Freitas Simoes","Carlos Rodrigo Alves Guimaraes"],
+  D: ["Jose Carlos Santana"]
+};
+const FOLGUISTA_NOMES = {
+  F: ["Leones de Freitas Simoes","Phablo Eduardo Abreu de Souza","Carlos Rodrigo Alves Guimaraes"],
+  H: ["Carlos Andre Santana","Leones de Freitas Simoes","Robson de Jesus Nascimento","Ronilson de Jesus da Silva","Carlos Rodrigo Alves Guimaraes","Jose Carlos Santana"],
+  B: ["Ronilson de Jesus da Silva","Robson de Jesus Nascimento","Carlos Andre Santana","Diego Souza Nogueira","Jose Carlos Santana"],
+  D: ["Leones de Freitas Simoes","Robson de Jesus Nascimento","Ronilson de Jesus da Silva","Carlos Andre Santana","Diego Souza Nogueira","Carlos Rodrigo Alves Guimaraes"]
+};
+
+let SEM_BANCA_TRABALHANDO = {F:[],H:[],B:[],D:[]};
+
+// Banca -> [chapa, nome, situacao, grupoFixo(ou null), capacidade]
+const ESCALAS_BASELINE = {
+F: [
+["G01","583","FELIPE SANTOS MOREIRA","Fixo",68],
+["G02","582","MARCOS AURELIO DE SOUSA PAES","Fixo",68],
+["G03","562","LEONES DE FREITAS SIMOES","Folguista",68],
+["G04","575","ADAILSON COUTINHO RODRIGUES","Fixo",68],
+["G05","599","TIAGO DOS SANTOS","Fixo",68],
+["G06","578","ISMAEL MIRANDA DOS SANTOS","Fixo",68],
+["G07","572","MATHEUS DE SOUZA ALMEIDA","Fixo",68],
+["G08","588","JOSE MATIM ALIPRANDI SANTOS","Fixo",68],
+["G09","597","ANTONIO MARCOS CANTAO FERREIRA","Fixo",68],
+["G10","570","MARCOS VINICIUS DE SOUZA ARCHANJO","Fixo",68],
+["G11","587","GUSTAVO TONNI ARMONDES AMORIN","Fixo",68],
+["G12","591","EDUARDO DOS SANTOS MARTINS","Fixo",68],
+["G13","553","PHABLO EDUARDO ABREU DE SOUZA","Folguista",68],
+["G14","574","DIEGO DOS SANTOS GUIMARAES","Fixo",68],
+["G15","596","GUSTAVO BARRETO DE CARVALHO","Fixo",68],
+["G16","584","LUCAS FERREIRA SANTOS","Fixo",68],
+["G17","567","JEAN GUILHERME MENDES BATISTA","Fixo",68],
+["G18","594","RYALISSON RODRIGUES SIMOES","Fixo",68],
+["G19","","BANCA PARADA","Parada",0],
+["G20","","BANCA PARADA","Parada",0],
+["G21","563","CARLOS RODRIGO ALVES GUIMARAES","Folguista",68],
+["G22","577","EDSON FRANCISCO DA SILVA","Fixo",68],
+["G23","","BANCA PARADA","Parada",0],
+["G24","","BANCA PARADA","Parada",0],
+["G25","564","JOSE CARVALHO DOS SANTOS","Fixo",70]
+],
+H: [
+["G01","583","FELIPE SANTOS MOREIRA","Fixo",68],
+["G02","565","CARLOS ANDRE SANTANA","Folguista",68],
+["G03","576","ALEXANDRE BRITO","Fixo",68],
+["G04","562","LEONES DE FREITAS SIMOES","Folguista",68],
+["G05","556","ROBSON DE JESUS NASCIMENTO","Folguista",68],
+["G06","578","ISMAEL MIRANDA DOS SANTOS","Fixo",68],
+["G07","572","MATHEUS DE SOUZA ALMEIDA","Fixo",68],
+["G08","588","JOSE MATIM ALIPRANDI SANTOS","Fixo",68],
+["G09","597","ANTONIO MARCOS CANTAO FERREIRA","Fixo",68],
+["G10","552","RONILSON DE JESUS DA SILVA","Folguista",68],
+["G11","587","GUSTAVO TONNI ARMONDES AMORIN","Fixo",68],
+["G12","591","EDUARDO DOS SANTOS MARTINS","Fixo",68],
+["G13","595","RICARDO DE JESUS AMORIM","Fixo",68],
+["G14","563","CARLOS RODRIGO ALVES GUIMARAES","Folguista",68],
+["G15","596","GUSTAVO BARRETO DE CARVALHO","Fixo",68],
+["G16","584","LUCAS FERREIRA SANTOS","Fixo",68],
+["G17","567","JEAN GUILHERME MENDES BATISTA","Fixo",68],
+["G18","593","JOSE CARLOS SANTANA","Folguista",68],
+["G19","","BANCA PARADA","Parada",0],
+["G20","","BANCA PARADA","Parada",0],
+["G21","554","GILSIMAR PEREIRA DUARTE","Fixo",68],
+["G22","577","EDSON FRANCISCO DA SILVA","Fixo",68],
+["G23","","BANCA PARADA","Parada",0],
+["G24","","BANCA PARADA","Parada",0],
+["G25","564","JOSE CARVALHO DOS SANTOS","Fixo",70]
+],
+B: [
+["G01","552","RONILSON DE JESUS DA SILVA","Folguista",68],
+["G02","582","MARCOS AURELIO DE SOUSA PAES","Fixo",68],
+["G03","576","ALEXANDRE BRITO","Fixo",68],
+["G04","575","ADAILSON COUTINHO RODRIGUES","Fixo",68],
+["G05","599","TIAGO DOS SANTOS","Fixo",68],
+["G06","578","ISMAEL MIRANDA DOS SANTOS","Fixo",68],
+["G07","572","MATHEUS DE SOUZA ALMEIDA","Fixo",68],
+["G08","556","ROBSON DE JESUS NASCIMENTO","Folguista",68],
+["G09","597","ANTONIO MARCOS CANTAO FERREIRA","Fixo",68],
+["G10","570","MARCOS VINICIUS DE SOUZA ARCHANJO","Fixo",68],
+["G11","587","GUSTAVO TONNI ARMONDES AMORIN","Fixo",68],
+["G12","565","CARLOS ANDRE SANTANA","Folguista",68],
+["G13","595","RICARDO DE JESUS AMORIM","Fixo",68],
+["G14","574","DIEGO DOS SANTOS GUIMARAES","Fixo",68],
+["G15","590","DIEGO SOUZA NOGUEIRA","Folguista",68],
+["G16","584","LUCAS FERREIRA SANTOS","Fixo",68],
+["G17","593","JOSE CARLOS SANTANA","Folguista",68],
+["G18","594","RYALISSON RODRIGUES SIMOES","Fixo",68],
+["G19","","BANCA PARADA","Parada",0],
+["G20","","BANCA PARADA","Parada",0],
+["G21","554","GILSIMAR PEREIRA DUARTE","Fixo",68],
+["G22","577","EDSON FRANCISCO DA SILVA","Fixo",68],
+["G23","","BANCA PARADA","Parada",0],
+["G24","","BANCA PARADA","Parada",0],
+["G25","564","JOSE CARVALHO DOS SANTOS","Fixo",70]
+],
+D: [
+["G01","583","FELIPE SANTOS MOREIRA","Fixo",68],
+["G02","582","MARCOS AURELIO DE SOUSA PAES","Fixo",68],
+["G03","576","ALEXANDRE BRITO","Fixo",68],
+["G04","575","ADAILSON COUTINHO RODRIGUES","Fixo",68],
+["G05","599","TIAGO DOS SANTOS","Fixo",68],
+["G06","562","LEONES DE FREITAS SIMOES","Folguista",68],
+["G07","556","ROBSON DE JESUS NASCIMENTO","Folguista",68],
+["G08","588","JOSE MATIM ALIPRANDI SANTOS","Fixo",68],
+["G09","552","RONILSON DE JESUS DA SILVA","Folguista",68],
+["G10","570","MARCOS VINICIUS DE SOUZA ARCHANJO","Fixo",68],
+["G11","565","CARLOS ANDRE SANTANA","Folguista",68],
+["G12","591","EDUARDO DOS SANTOS MARTINS","Fixo",68],
+["G13","595","RICARDO DE JESUS AMORIM","Fixo",68],
+["G14","574","DIEGO DOS SANTOS GUIMARAES","Fixo",68],
+["G15","596","GUSTAVO BARRETO DE CARVALHO","Fixo",68],
+["G16","","SEM FOLGUISTA","Sem folguista",0],
+["G17","567","JEAN GUILHERME MENDES BATISTA","Fixo",68],
+["G18","594","RYALISSON RODRIGUES SIMOES","Fixo",68],
+["G19","","BANCA PARADA","Parada",0],
+["G20","","BANCA PARADA","Parada",0],
+["G21","554","GILSIMAR PEREIRA DUARTE","Fixo",68],
+["G22","590","DIEGO SOUZA NOGUEIRA","Folguista",68],
+["G23","","BANCA PARADA","Parada",0],
+["G24","","BANCA PARADA","Parada",0],
+["G25","563","CARLOS RODRIGO ALVES GUIMARAES","Folguista",70]
+]
+};
+
+const FIXOS_GRUPO = {
+  G01:"B",G02:"H",G03:"F",G04:"H",G05:"H",G06:"D",G07:"D",G08:"B",G09:"D",G10:"H",
+  G11:"D",G12:"B",G13:"F",G14:"H",G15:"B",G16:"D",G17:"B",G18:"H",G21:"F",G22:"D",G25:"D"
+};
+
+const BANCAS_ALL = [];
+for(let n=1;n<=25;n++){ BANCAS_ALL.push("G"+String(n).padStart(2,"0")); }
+
+// ---- Deriva FIXO_DATA e FOLGUISTA_DATA a partir dos dados originais (ESCALAS_BASELINE) ----
+function derivarDadosOriginais(){
+  const fixo = {};
+  const folguista = {};
+  BANCAS_ALL.forEach(banca=>{
+    let grupo = null, fixoInfo = null;
+    ["F","H","B","D"].forEach(g=>{
+      const row = ESCALAS_BASELINE[g].find(r=>r[0]===banca);
+      if(!row) return;
+      if(row[3] === "Fixo"){
+        fixoInfo = {chapa: row[1], nome: row[2]};
+      } else if(row[3] === "Folguista" || row[3] === "Sem folguista"){
+        grupo = g;
+        if(row[3] === "Folguista"){
+          folguista[banca] = {chapa: row[1], nome: row[2]};
+        }
+      }
+    });
+    if(grupo === null){
+      fixo[banca] = {chapa:"", nome:"BANCA PARADA", grupo:null};
+    } else {
+      fixo[banca] = {chapa: fixoInfo.chapa, nome: fixoInfo.nome, grupo: grupo};
+    }
+  });
+  return {fixo, folguista};
+}
+
+const DERIVADO = derivarDadosOriginais();
+
+// Mapa permanente nome -> grupo original (nunca muda, mesmo se a banca fixa da pessoa for editada depois)
+let GRUPO_ORIGINAL_POR_NOME = {};
+Object.values(DERIVADO.fixo).forEach(f=>{
+  if(f.nome && f.grupo) GRUPO_ORIGINAL_POR_NOME[f.nome.toUpperCase()] = f.grupo;
+});
+try{
+  const savedGrupoOriginal = JSON.parse(localStorage.getItem("grupoOriginalPorNome") || "{}");
+  Object.assign(GRUPO_ORIGINAL_POR_NOME, savedGrupoOriginal);
+}catch(e){}
+
+// Mapa permanente CHAPA -> grupo original. Mais confiável que nome->grupo porque a
+// chapa nunca varia de grafia (diferente do nome, que pode estar escrito diferente
+// no Banco de Dados x Dados Originais, ex: "ALEXANDRE BRITO" x "ALEXANDRE DE OLIVEIRA BRITO").
+let GRUPO_ORIGINAL_POR_CHAPA = {};
+Object.values(DERIVADO.fixo).forEach(f=>{
+  if(f.chapa && f.grupo) GRUPO_ORIGINAL_POR_CHAPA[f.chapa] = f.grupo;
+});
+try{
+  const savedGrupoOriginalChapa = JSON.parse(localStorage.getItem("grupoOriginalPorChapa") || "{}");
+  Object.assign(GRUPO_ORIGINAL_POR_CHAPA, savedGrupoOriginalChapa);
+}catch(e){}
+
+// Mapa permanente chapa -> nome, baseado nos dados originais da planilha (nunca muda)
+const NOME_POR_CHAPA_ORIGINAL = {};
+Object.values(DERIVADO.fixo).forEach(f=>{ if(f.chapa) NOME_POR_CHAPA_ORIGINAL[f.chapa] = f.nome; });
+Object.values(DERIVADO.folguista).forEach(f=>{ if(f.chapa) NOME_POR_CHAPA_ORIGINAL[f.chapa] = f.nome; });
+
+let FIXO_DATA = DERIVADO.fixo;
+let FOLGUISTA_DATA = DERIVADO.folguista;
+
+try{
+  const baseFixo = JSON.parse(localStorage.getItem("fixoDataBaseline"));
+  const baseFolg = JSON.parse(localStorage.getItem("folguistaDataBaseline"));
+  if(baseFixo) FIXO_DATA = baseFixo;
+  if(baseFolg) FOLGUISTA_DATA = baseFolg;
+}catch(e){}
+
+try{
+  const savedFixo = JSON.parse(localStorage.getItem("fixoData"));
+  if(savedFixo) FIXO_DATA = savedFixo;
+}catch(e){}
+try{
+  const savedFolg = JSON.parse(localStorage.getItem("folguistaData"));
+  if(savedFolg) FOLGUISTA_DATA = savedFolg;
+}catch(e){}
+
+function gerarListaFundidores(){
+  const lista = [];
+
+  BANCAS_ALL.forEach(banca=>{
+    const f = FIXO_DATA[banca];
+    if(f && f.grupo && f.chapa && f.nome){
+      lista.push([banca, f.chapa, f.nome, "Fixo", f.grupo]);
+    }
+  });
+
+  // agrupa folguistas por chapa+nome, juntando as bancas que cada um cobre
+  const folguistasPorChapa = {};
+  BANCAS_ALL.forEach(banca=>{
+    const folg = FOLGUISTA_DATA[banca];
+    if(folg && folg.chapa && folg.nome){
+      const key = folg.chapa + "|" + folg.nome;
+      if(!folguistasPorChapa[key]) folguistasPorChapa[key] = {chapa:folg.chapa, nome:folg.nome, bancas:[]};
+      folguistasPorChapa[key].bancas.push(banca);
+    }
+  });
+  Object.values(folguistasPorChapa).forEach(f=>{
+    const grupo = grupoPessoalPorNome(f.nome, null, f.chapa) || "Especial";
+    lista.push([f.bancas.join(", "), f.chapa, f.nome, "Folguista", grupo]);
+  });
+
+  return lista;
+}
+
+function gerarEscalas(){
+  const out = {F:[],H:[],B:[],D:[]};
+  ["F","H","B","D"].forEach(g=>{
+    BANCAS_ALL.forEach(banca=>{
+      const f = FIXO_DATA[banca];
+      const cap = banca === "G25" ? 70 : 68;
+      if(!f || f.grupo === null){
+        out[g].push([banca, "", "BANCA PARADA", "Parada", 0]);
+      } else if(f.grupo === g){
+        const folg = FOLGUISTA_DATA[banca];
+        if(folg && folg.chapa){
+          out[g].push([banca, folg.chapa, folg.nome, "Folguista", cap]);
+        } else {
+          out[g].push([banca, "", "SEM FOLGUISTA", "Sem folguista", 0]);
+        }
+      } else {
+        out[g].push([banca, f.chapa, f.nome, "Fixo", cap]);
+      }
+    });
+  });
+  return out;
+}
+
+let ESCALAS = gerarEscalas();
+
+const FUNDIDORES_POR_GRUPO = {F:7,H:6,B:7,D:8};
+const FUNDIDORES_FIXOS = {F:3,H:6,B:5,D:7};
+const FUNDIDORES_FOLG = {F:4,H:0,B:2,D:1};
+
+let LISTA_FUNDIDORES = [
+["G01","583","FELIPE SANTOS MOREIRA","Fixo","B"],
+["G02","582","MARCOS AURELIO DE SOUSA PAES","Fixo","H"],
+["G03","576","ALEXANDRE BRITO","Fixo","F"],
+["G04","575","ADAILSON COUTINHO RODRIGUES","Fixo","H"],
+["G05","599","TIAGO DOS SANTOS","Fixo","H"],
+["G06","578","ISMAEL MIRANDA DOS SANTOS","Fixo","D"],
+["G07","572","MATHEUS DE SOUZA ALMEIDA","Fixo","D"],
+["G08","588","JOSE MATIM ALIPRANDI SANTOS","Fixo","B"],
+["G09","597","ANTONIO MARCOS CANTAO FERREIRA","Fixo","D"],
+["G10","570","MARCOS VINICIUS DE SOUZA ARCHANJO","Fixo","H"],
+["G11","587","GUSTAVO TONNI ARMONDES AMORIN","Fixo","D"],
+["G12","591","EDUARDO DOS SANTOS MARTINS","Fixo","B"],
+["G13","595","RICARDO DE JESUS AMORIM","Fixo","F"],
+["G14","574","DIEGO DOS SANTOS GUIMARAES","Fixo","H"],
+["G15","596","GUSTAVO BARRETO DE CARVALHO","Fixo","B"],
+["G16","584","LUCAS FERREIRA SANTOS","Fixo","D"],
+["G17","567","JEAN GUILHERME MENDES BATISTA","Fixo","B"],
+["G18","594","RYALISSON RODRIGUES SIMOES","Fixo","H"],
+["G21","554","GILSIMAR PEREIRA DUARTE","Fixo","F"],
+["G22","577","EDSON FRANCISCO DA SILVA","Fixo","D"],
+["G25","564","JOSE CARVALHO DOS SANTOS","Fixo","D"],
+["G01, G09, G10","552","RONILSON DE JESUS DA SILVA","Folguista","F"],
+["G05, G07, G08","556","ROBSON DE JESUS NASCIMENTO","Folguista","F"],
+["G02, G11, G12","565","CARLOS ANDRE SANTANA","Folguista","F"],
+["G15, G22","590","DIEGO SOUZA NOGUEIRA","Folguista","F"],
+["G03, G04, G06","562","LEONES DE FREITAS SIMOES","Folguista","B"],
+["G14, G21, G25","563","CARLOS RODRIGO ALVES GUIMARAES","Folguista","B"],
+["G17, G18","593","JOSE CARLOS SANTANA","Folguista","D"],
+["G13","553","PHABLO EDUARDO ABREU DE SOUZA","Folguista","Especial"]
+];
+
+let CHAPA_OVERRIDES = {};
+try {
+  CHAPA_OVERRIDES = JSON.parse(localStorage.getItem("chapaOverrides") || "{}");
+} catch(e){ CHAPA_OVERRIDES = {}; }
+
+let HISTORICO = [];
+try{
+  HISTORICO = JSON.parse(localStorage.getItem("historicoChapas") || "[]");
+}catch(e){ HISTORICO = []; }
+
+function salvarHistorico(){
+  try{ localStorage.setItem("historicoChapas", JSON.stringify(HISTORICO)); }catch(e){}
+}
+
+// ---- Registro chapa -> nome, usado para "nome segue a chapa" nas tabelas de banca ----
+let LISTA_FUNDIDORES_EXTRAS = [];
+try{
+  LISTA_FUNDIDORES_EXTRAS = JSON.parse(localStorage.getItem("listaFundidoresExtras") || "[]");
+}catch(e){ LISTA_FUNDIDORES_EXTRAS = []; }
+LISTA_FUNDIDORES_EXTRAS.forEach(f=>{
+  if(f.nome && f.grupo) GRUPO_ORIGINAL_POR_NOME[f.nome.toUpperCase()] = f.grupo;
+});
+
+function construirNomePorChapa(){
+  const map = {};
+  LISTA_FUNDIDORES.forEach(r=>{
+    const [,chapa,nome] = r;
+    if(chapa) map[chapa] = nome;
+  });
+  Object.values(FIXO_DATA).forEach(f=>{ if(f.chapa) map[f.chapa] = f.nome; });
+  Object.values(FOLGUISTA_DATA).forEach(f=>{ if(f.chapa) map[f.chapa] = f.nome; });
+  LISTA_FUNDIDORES_EXTRAS.forEach(f=>{ if(f.chapa) map[f.chapa] = f.nome; });
+  return map;
+}
+let NOME_POR_CHAPA = construirNomePorChapa();
+
+let BANCA_OVERRIDES = {};
+try {
+  BANCA_OVERRIDES = JSON.parse(localStorage.getItem("bancaOverrides") || "{}");
+} catch(e){ BANCA_OVERRIDES = {}; }
+
+function bancaKey(escala, banca){ return escala + "|" + banca; }
+
+function saveBancaChapa(escala, banca, novaChapa){
+  const key = bancaKey(escala, banca);
+  HISTORICO.push({tipo:"banca", chave:key, anterior: BANCA_OVERRIDES[key], label: `${escala} - ${banca}`});
+  salvarHistorico();
+  BANCA_OVERRIDES[key] = novaChapa;
+  try{ localStorage.setItem("bancaOverrides", JSON.stringify(BANCA_OVERRIDES)); }catch(e){}
+}
+
+// Capacidade padrao por banca (independente de quem esta trabalhando)
+let CAPACIDADE_BANCA = {};
+["F","H","B","D"].forEach(g=>{
+  ESCALAS[g].forEach(r=>{ CAPACIDADE_BANCA[r[0]] = (r[0]==="G25") ? 70 : 68; });
+});
+
+const padRight = (s,n) => s.toString().slice(0,n).padEnd(n," ");
+
+function textoWhatsApp(g){
+  const eff = effectiveRows(g);
+  const produzindo = eff.filter(r=>r.cap>0).length;
+  const producao = eff.reduce((a,r)=>a+r.cap,0);
+
+  let texto = `*ESCALA ${g}*\n`;
+  texto += "```\n";
+  eff.forEach(r=>{
+    const chapaTxt = r.chapa || "-";
+    texto += `${r.banca} [${chapaTxt}] ${r.nome}\n`;
+  });
+  texto += "```\n";
+  texto += `${produzindo}/21 | ${producao}un`;
+  return texto;
+}
+
+function textoWhatsAppAjudantes(){
+  const grupos = ["F","H","B","D"].filter(g=>ajudanteFiltro.includes(g));
+  let texto = `*AJUDANTES*\n`;
+  texto += "```\n";
+  grupos.forEach(g=>{
+    ajudantesDoGrupo(g).forEach(nome=>{
+      texto += `${g} ${nome}\n`;
+    });
+  });
+  texto += "```\n";
+  const total = grupos.reduce((a,g)=>a+ajudantesDoGrupo(g).length,0);
+  texto += `Total: ${total}`;
+  return texto;
+}
+
+function textoWhatsAppResumo(){
+  let texto = `*RESUMO*\n`;
+  texto += "```\n";
+  ["F","H","B","D"].forEach(g=>{
+    const eff = effectiveRows(g);
+    const produzindo = eff.filter(r=>r.cap>0).length;
+    const producao = eff.reduce((a,r)=>a+r.cap,0);
+    texto += `${g} ${produzindo}/21 ${producao}un\n`;
+  });
+  texto += "```";
+  return texto;
+}
+
+function copiarTexto(texto, feedbackId){
+  const feedback = document.getElementById(feedbackId);
+  function mostrarFeedback(){
+    if(feedback){
+      feedback.textContent = "✅ Copiado!";
+      setTimeout(()=>{ feedback.textContent = ""; }, 2000);
+    }
+  }
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(texto).then(mostrarFeedback).catch(()=>{
+      copiarFallback(texto, mostrarFeedback);
+    });
+  } else {
+    copiarFallback(texto, mostrarFeedback);
+  }
+}
+
+
+// Monta o PDF da escala e devolve o objeto jsPDF pronto (sem salvar/baixar ainda)
+function baixarPDF(g, chave){
+  chave = chave || g;
+  const eff = effectiveRows(g);
+  const produzindo = eff.filter(r=>r.cap>0).length;
+  const producao = eff.reduce((a,r)=>a+r.cap,0);
+  const fb = document.getElementById("copy-feedback-"+chave);
+
+  if(!window.jspdf){
+    if(fb) fb.textContent = "⚠️ Não consegui carregar o gerador de PDF (sem internet no momento?). Verifique a conexão e tente de novo.";
+    else alert("Não foi possível carregar o gerador de PDF (sem internet no momento?). Verifique a conexão e tente de novo.");
+    return;
+  }
+
+  try{
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+
+    doc.setFontSize(15);
+    doc.text(`ESCALA ${g}`, 14, 16);
+    doc.setFontSize(9);
+    doc.setTextColor(120);
+    doc.text(`Folga do grupo ${g} — ${new Date().toLocaleDateString("pt-BR")}`, 14, 22);
+    doc.setTextColor(0);
+
+    if(typeof doc.autoTable !== "function"){
+      throw new Error("Plugin de tabela do PDF não carregou (autoTable indisponível).");
+    }
+
+    doc.autoTable({
+      startY: 28,
+      head: [["Banca","Chapa","Fundidor"]],
+      body: eff.map(r=>[r.banca, r.chapa || "-", r.nome]),
+      styles: {fontSize:9, cellPadding:2.2},
+      headStyles: {fillColor:[40,45,55]},
+      theme: "grid"
+    });
+
+    const finalY = doc.lastAutoTable.finalY || 30;
+    doc.setFontSize(11);
+    doc.setFont(undefined,"bold");
+    doc.text(`Bancas produzindo: ${produzindo}/21`, 14, finalY+10);
+    doc.text(`Total produzido: ${producao} un/dia`, 14, finalY+17);
+
+    const nomeArquivo = `escala_${chave}.pdf`;
+
+    try{
+      doc.save(nomeArquivo);
+      if(fb){
+        fb.textContent = `✅ ${nomeArquivo} baixado!`;
+        setTimeout(()=>{ fb.textContent = ""; }, 2500);
+      }
+    }catch(errSave){
+      // se o download direto falhar (ex: bloqueio de iframe), abre o PDF numa aba nova
+      // pra pessoa poder salvar/imprimir manualmente a partir dali
+      try{
+        const url = doc.output("bloburl");
+        window.open(url, "_blank");
+        if(fb){
+          fb.textContent = `ℹ️ Não consegui baixar direto — abri o PDF numa aba nova, use o menu de lá pra salvar.`;
+        }
+      }catch(errOpen){
+        if(fb) fb.textContent = "⚠️ Não consegui gerar o PDF. Tente de novo ou avise se persistir.";
+        else alert("Não consegui gerar o PDF. Tente de novo ou avise se persistir.");
+      }
+    }
+  }catch(err){
+    if(fb) fb.textContent = "⚠️ Erro ao gerar o PDF: " + (err && err.message ? err.message : err);
+    else alert("Erro ao gerar o PDF: " + (err && err.message ? err.message : err));
+  }
+}
+
+function copiarWhatsApp(g, chave){
+  copiarTexto(textoWhatsApp(g), "copy-feedback-"+(chave||g));
+}
+
+// Desenha a tabela da escala (Banca, Chapa, Fundidor) + total num canvas e gera um PNG.
+function gerarImagemEscala(g){
+  const eff = effectiveRows(g);
+  const produzindo = eff.filter(r=>r.cap>0).length;
+  const producao = eff.reduce((a,r)=>a+r.cap,0);
+
+  const corGrupo = {F:"#5b8bd0", H:"#c96b6b", B:"#7fa650", D:"#d98a3d"}[g] || "#5b8bd0";
+  const larguraColB = 70, larguraColC = 90, larguraColF = 340;
+  const larguraTotal = larguraColB + larguraColC + larguraColF;
+  const alturaLinha = 34, alturaCabecalho = 76, alturaRodape = 70, margem = 20;
+  const alturaCanvas = alturaCabecalho + (eff.length * alturaLinha) + alturaRodape + margem*2;
+  const larguraCanvas = larguraTotal + margem*2;
+
+  const canvas = document.createElement("canvas");
+  const escalaPx = 2; // desenha em resolução maior pra ficar nítido
+  canvas.width = larguraCanvas * escalaPx;
+  canvas.height = alturaCanvas * escalaPx;
+  const ctx = canvas.getContext("2d");
+  ctx.scale(escalaPx, escalaPx);
+
+  // fundo
+  ctx.fillStyle = "#0f1115";
+  ctx.fillRect(0, 0, larguraCanvas, alturaCanvas);
+
+  let y = margem;
+
+  // título
+  ctx.fillStyle = corGrupo;
+  ctx.fillRect(margem, y, 34, 34);
+  ctx.fillStyle = "#fff";
+  ctx.font = "bold 20px Arial";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(g, margem + 17, y + 18);
+
+  ctx.fillStyle = "#e8e8ea";
+  ctx.font = "bold 18px Arial";
+  ctx.textAlign = "left";
+  ctx.fillText(`ESCALA ${g}`, margem + 46, y + 12);
+  ctx.fillStyle = "#9aa0aa";
+  ctx.font = "12px Arial";
+  ctx.fillText(`Folga do grupo ${g} — ${new Date().toLocaleDateString("pt-BR")}`, margem + 46, y + 30);
+
+  y += 50;
+
+  // cabeçalho da tabela
+  ctx.fillStyle = "#1e2229";
+  ctx.fillRect(margem, y, larguraTotal, 26);
+  ctx.fillStyle = "#e8e8ea";
+  ctx.font = "bold 12px Arial";
+  ctx.textBaseline = "middle";
+  ctx.textAlign = "left";
+  ctx.fillText("Banca", margem + 8, y + 13);
+  ctx.fillText("Chapa", margem + larguraColB + 8, y + 13);
+  ctx.fillText("Fundidor", margem + larguraColB + larguraColC + 8, y + 13);
+  y += 26;
+
+  // linhas
+  ctx.font = "13px Arial";
+  eff.forEach((r,idx)=>{
+    const corFundo = idx % 2 === 0 ? "#171a21" : "#1a1e26";
+    ctx.fillStyle = corFundo;
+    ctx.fillRect(margem, y, larguraTotal, alturaLinha);
+    ctx.strokeStyle = "#2a2f38";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(margem, y, larguraTotal, alturaLinha);
+
+    ctx.fillStyle = r.cap === 0 ? "#9aa0aa" : "#e8e8ea";
+    ctx.fillText(r.banca, margem + 8, y + alturaLinha/2);
+    ctx.fillText(r.chapa || "-", margem + larguraColB + 8, y + alturaLinha/2);
+    const nomeExibido = r.nome.length > 30 ? r.nome.slice(0,29)+"…" : r.nome;
+    ctx.fillText(nomeExibido, margem + larguraColB + larguraColC + 8, y + alturaLinha/2);
+    y += alturaLinha;
+  });
+
+  y += 22;
+  ctx.font = "bold 14px Arial";
+  ctx.fillStyle = "#e8e8ea";
+  ctx.fillText(`Bancas produzindo: ${produzindo}/21`, margem, y);
+  y += 22;
+  ctx.fillText(`Total produzido: ${producao} un/dia`, margem, y);
+
+  return canvas;
+}
+
+function baixarImagemEscala(g, chave){
+  chave = chave || g;
+  const fb = document.getElementById("copy-feedback-"+chave);
+  try{
+    const canvas = gerarImagemEscala(g);
+    const nomeArquivo = `escala_${chave}.png`;
+    const dataUrl = canvas.toDataURL("image/png");
+    const blob = dataURLParaBlob(dataUrl);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = nomeArquivo;
+    a.rel = "noopener";
+    a.style.display = "none";
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(()=>{
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 1500);
+    if(fb){
+      fb.textContent = `✅ ${nomeArquivo} baixado!`;
+      setTimeout(()=>{ fb.textContent = ""; }, 2500);
+    }
+  }catch(err){
+    if(fb) fb.textContent = "⚠️ Erro ao gerar a imagem: " + (err && err.message ? err.message : err);
+    else alert("Erro ao gerar a imagem: " + (err && err.message ? err.message : err));
+  }
+}
+
+// Converte um dataURL (canvas.toDataURL) em Blob, de forma síncrona —
+// importante pra não perder o "gesto do usuário" antes de chamar o compartilhamento.
+function dataURLParaBlob(dataUrl){
+  const partes = dataUrl.split(",");
+  const mime = partes[0].match(/:(.*?);/)[1];
+  const bin = atob(partes[1]);
+  let n = bin.length;
+  const bytes = new Uint8Array(n);
+  while(n--){ bytes[n] = bin.charCodeAt(n); }
+  return new Blob([bytes], {type: mime});
+}
+
+// Gera a imagem e tenta abrir direto o menu nativo de compartilhamento
+// (WhatsApp, etc.). Se não der, cai no download normal da imagem.
+async function compartilharImagemEscala(g, chave){
+  chave = chave || g;
+  const fb = document.getElementById("copy-feedback-"+chave);
+  try{
+    const canvas = gerarImagemEscala(g);
+    const nomeArquivo = `escala_${chave}.png`;
+    // toDataURL é síncrono (diferente de toBlob), então o clique do usuário
+    // ainda está "válido" na hora de chamar o navigator.share logo abaixo
+    const dataUrl = canvas.toDataURL("image/png");
+    const blob = dataURLParaBlob(dataUrl);
+    const arquivo = new File([blob], nomeArquivo, {type:"image/png"});
+
+    if(navigator.share && navigator.canShare && navigator.canShare({files:[arquivo]})){
+      try{
+        await navigator.share({ files: [arquivo], title: `Escala ${g}`, text: `Escala ${g} — GAROL` });
+        if(fb){
+          fb.textContent = "✅ Pronto pra compartilhar!";
+          setTimeout(()=>{ fb.textContent = ""; }, 2000);
+        }
+        return;
+      }catch(err){
+        if(err && err.name === "AbortError") return;
+        if(fb) fb.textContent = "⚠️ Não consegui abrir o compartilhamento (" + (err && err.name ? err.name : "erro") + ") — baixando a imagem normal.";
+        // segue pro download abaixo
+      }
+    } else if(fb){
+      fb.textContent = "ℹ️ Esse navegador não suporta compartilhar imagem direto — baixando normal.";
+    }
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = nomeArquivo;
+    a.rel = "noopener";
+    a.style.display = "none";
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(()=>{
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 1500);
+    if(fb && !fb.textContent){
+      fb.textContent = `✅ ${nomeArquivo} baixado! Anexe manualmente no WhatsApp.`;
+    }
+  }catch(err){
+    if(fb) fb.textContent = "⚠️ Erro ao gerar/compartilhar a imagem: " + (err && err.message ? err.message : err);
+    else alert("Erro ao gerar/compartilhar a imagem: " + (err && err.message ? err.message : err));
+  }
+}
+
+function copiarWhatsAppAjudantes(){
+  copiarTexto(textoWhatsAppAjudantes(), "copy-feedback-ajudantes");
+}
+
+function copiarWhatsAppResumo(){
+  copiarTexto(textoWhatsAppResumo(), "copy-feedback-resumo");
+}
+
+function copiarFallback(texto, cb){
+  const ta = document.createElement("textarea");
+  ta.value = texto;
+  ta.style.position = "fixed";
+  ta.style.opacity = "0";
+  document.body.appendChild(ta);
+  ta.focus();
+  ta.select();
+  try{ document.execCommand("copy"); cb(); }catch(e){}
+  document.body.removeChild(ta);
+}
+
+function ajudantesTrabalhando(g){
+  let out=[];
+  ["F","H","B","D"].forEach(k=>{ if(k!==g) out = out.concat(ajudantesDoGrupo(k)); });
+  return out;
+}
+
+function effectiveRows(g){
+  const rows = ESCALAS[g];
+  return rows.map(r=>{
+    const [banca, chapaOrig, nomeOrig, sitOrig] = r;
+    const key = bancaKey(g, banca);
+    const override = BANCA_OVERRIDES[key];
+    if(override !== undefined){
+      if(override === "0"){
+        return {banca, chapa:override, nome:"BANCA TROCANDO", sit:"Parada", cap:0};
+      }
+      if(override === ""){
+        return {banca, chapa:"", nome:"BANCA PARADA", sit:"Parada", cap:0};
+      }
+      const nomeEncontrado = NOME_POR_CHAPA[override];
+      if(nomeEncontrado){
+        return {banca, chapa:override, nome:nomeEncontrado, sit:"Ajustado", cap:CAPACIDADE_BANCA[banca]};
+      } else {
+        return {banca, chapa:override, nome:"⚠️ Chapa não cadastrada", sit:"Verificar", cap:CAPACIDADE_BANCA[banca]};
+      }
+    }
+    return {banca, chapa:chapaOrig, nome:nomeOrig, sit:sitOrig, cap:r[4]};
+  });
+}
+
+function pessoasForaDaEscala(g){
+  const placeholders = ["BANCA PARADA","SEM FOLGUISTA","BANCA TROCANDO"];
+  const baseline = ESCALAS[g].map(r=>r[2]).filter(n=>!placeholders.includes(n));
+  const efetivos = effectiveRows(g).map(r=>r.nome).filter(n=>!placeholders.includes(n) && !n.startsWith("⚠️"));
+  return baseline.filter(n=>!efetivos.includes(n));
+}
+
+// Titulares (Fixo) cujo dia de folga é o grupo g — derivado ao vivo de Dados Originais
+function titularesDeFolga(g){
+  const nomes = [];
+  Object.keys(FIXO_DATA).forEach(banca=>{
+    const f = FIXO_DATA[banca];
+    if(f && f.grupo === g && f.nome && f.nome !== "BANCA PARADA"){
+      nomes.push(f.nome);
+    }
+  });
+  return nomes.sort((a,b)=>a.localeCompare(b,'pt-BR'));
+}
+
+// Folguistas que cobrem as bancas do grupo g hoje — derivado ao vivo de Dados Originais
+function folguistasCobrindo(g){
+  const nomes = [];
+  Object.keys(FIXO_DATA).forEach(banca=>{
+    const f = FIXO_DATA[banca];
+    if(f && f.grupo === g){
+      const folg = FOLGUISTA_DATA[banca];
+      if(folg && folg.nome && folg.nome !== "SEM FOLGUISTA"){
+        nomes.push(folg.nome);
+      }
+    }
+  });
+  return nomes.sort((a,b)=>a.localeCompare(b,'pt-BR'));
+}
+
+function escalaHTML(g, chave, dataInfo){
+  chave = chave || g;
+  const dataAlvo = dataInfo ? dataInfo.data : null;
+  const eff = effectiveRows(g);
+  const produzindo = eff.filter(r=>r.cap>0).length;
+  const producao = eff.reduce((a,r)=>a+r.cap,0);
+  const listaFolga = titularesDeFolga(g).concat(SEM_BANCA_FOLGA[g].map(n=>n+" (sem banca fixa)"));
+  const listaTrab = folguistasCobrindo(g);
+  const ajFolga = ajudantesDoGrupo(g);
+  const ajTrab = ajudantesTrabalhando(g);
+  const fora = pessoasForaDaEscala(g);
+
+  const tituloData = dataInfo ? ` — ${formatarDataBR(dataInfo.data)}` : ` — Folga do grupo ${g}`;
+  let html = `<h2><span class="tag tag-${g}">${g}</span> Escala ${g}${tituloData}</h2>`;
+
+  html += `<div class="kpis">
+    <div class="kpi"><div class="n">${produzindo}/21</div><div class="l">bancas produzindo</div></div>
+    <div class="kpi"><div class="n">${producao}</div><div class="l">un/dia</div></div>
+    <div class="kpi"><div class="n">${ajTrab.length}</div><div class="l">ajudantes trabalhando</div></div>
+  </div>`;
+
+  html += `<button class="whatsapp-btn" onclick="copiarWhatsApp('${g}','${chave}')">📋 Copiar escala para WhatsApp</button>
+  <span id="copy-feedback-${chave}" class="copy-feedback"></span>
+  <button class="print-btn" onclick="baixarPDF('${g}','${chave}')">📄 Baixar PDF (Banca, Chapa, Fundidor, Total)</button>
+  <button class="whatsapp-btn" onclick="compartilharImagemEscala('${g}','${chave}')">🖼️ Compartilhar imagem (WhatsApp)</button>
+  <button class="print-btn" onclick="baixarImagemEscala('${g}','${chave}')">🖼️ Baixar imagem (PNG)</button>
+  <button id="btn-undo-${chave}" class="undo-btn" onclick="desfazerUltimaEdicao('${chave}')">↩️ Desfazer</button>
+  <button id="btn-reset-${chave}" class="reset-btn" onclick="resetEscala('${g}','${chave}')">Restaurar só a escala ${g}</button>`;
+
+  html += `<div class="cols">
+    <div class="col folga">
+      <h3>🔴 De folga hoje</h3>
+      <ul>${listaFolga.map(n=>`<li>${n}</li>`).join("")}</ul>
+    </div>
+    <div class="col trab">
+      <h3>🔵 Folguistas cobrindo</h3>
+      <ul>${listaTrab.map(n=>`<li>${n}</li>`).join("")}</ul>
+    </div>
+  </div>`;
+
+  html += `<div class="cols">
+    <div class="col folga">
+      <h3>🔴 Ajudantes de folga</h3>
+      <ul>${ajFolga.map(n=>`<li>${n}${marcadorAusenciaPorNome(n, g, dataAlvo)}</li>`).join("")}</ul>
+    </div>
+    <div class="col trab">
+      <h3>🔵 Ajudantes trabalhando (${ajTrab.length})</h3>
+      <ul>${ajTrab.map(n=>`<li>${n}${marcadorAusenciaPorNome(n, g, dataAlvo)}</li>`).join("")}</ul>
+    </div>
+  </div>`;
+
+  html += `<div class="table-wrap"><table><thead><tr><th>Banca</th><th>Chapa</th><th>Fundidor</th><th>Situação</th><th>Capacidade</th></tr></thead><tbody>`;
+  eff.forEach(row=>{
+    const {banca, chapa, nome, sit, cap} = row;
+    const atestado = atestadoAtivoNaEscala(chapa, g, dataAlvo);
+    const debito = !atestado ? debitoAtivoNaEscala(chapa, g, dataAlvo) : null;
+    const cls = atestado ? "row-Atestado" : debito ? "row-Atestado" : (sit==="Fixo"?"row-Fixo":sit==="Folguista"?"row-Folguista":sit==="Ajustado"?"row-Folguista":sit==="Parada"?"row-Parada":"row-Semfolguista");
+    const chapaCell = `<span class="chapa-cell" contenteditable="true" data-escala="${g}" data-banca="${banca}">${chapa}</span>`;
+    const situacaoTexto = atestado
+      ? `🏥 Atestado<br>(volta ${formatarDataBR(dataRetornoAtestado(atestado))})`
+      : debito
+      ? `CD<br>(volta ${formatarDataBR(dataRetornoDebito(debito))})`
+      : `${sit}${(sit==="Sem folguista"||sit==="Verificar")?' <span class="warn">⚠️</span>':''}`;
+    html += `<tr class="${cls}"><td>${banca}</td><td>${chapaCell}</td><td>${nome}</td><td>${situacaoTexto}</td><td>${cap||"-"}</td></tr>`;
+  });
+  html += `</tbody></table></div>`;
+
+  const semBanca = SEM_BANCA_TRABALHANDO[g];
+  if(semBanca.length > 0){
+    html += `<div style="background:var(--panel);border:1px solid var(--border);border-left:3px solid #8a7a4a;border-radius:6px;padding:8px 12px;margin-bottom:10px;">
+      <h3 style="margin:0 0 4px;font-size:.75rem;color:var(--muted);font-weight:600;">Trabalhando hoje, sem banca fixa</h3>
+      <ul style="margin:0;padding-left:16px;font-size:.72rem;color:var(--muted);line-height:1.5;">${semBanca.map(n=>`<li>${n}</li>`).join("")}</ul>
+    </div>`;
+  }
+
+  if(fora.length > 0){
+    html += `<div class="col folga" style="margin-bottom:10px;">
+      <h3>⚠️ Fora da escala (substituídos por ajuste de chapa)</h3>
+      <ul>${fora.map(n=>`<li>${n}</li>`).join("")}</ul>
+    </div>`;
+  }
+
+  return html;
+}
+
+function resumoHTML(){
+  let html = `<h2>Resumo de produção por escala</h2>`;
+  html += `<button class="whatsapp-btn" onclick="copiarWhatsAppResumo()">📋 Copiar resumo para WhatsApp</button>
+  <span id="copy-feedback-resumo" class="copy-feedback"></span>`;
+  html += `<div style="display:flex;gap:6px;margin-bottom:8px;">
+    <button class="whatsapp-btn" style="margin:0;flex:1;" onclick="gerarHtmlComBackupEmbutido()">📦 Gerar HTML com backup embutido</button>
+    <button class="print-btn" style="margin:0;flex:1;" onclick="carregarBackupEmbutidoManual()">📥 Carregar backup embutido</button>
+  </div>
+  <span id="copy-feedback-embutido" class="copy-feedback"></span>
+  <p style="color:var(--muted);font-size:.68rem;margin:0 0 10px;">📦 Gera uma cópia deste app com os dados salvos AQUI DENTRO do próprio arquivo HTML — suba esse arquivo pro GitHub (substituindo o antigo) e os dados vão junto, sem precisar de backup separado. "Carregar backup embutido" puxa de volta os dados que estiverem guardados dentro deste arquivo específico.</p>`;
+  html += `<div class="table-wrap"><table><thead><tr><th>Escala</th><th>Paradas</th><th>Produzindo</th><th>Produção (un/dia)</th></tr></thead><tbody>`;
+  ["F","H","B","D"].forEach(g=>{
+    const eff = effectiveRows(g);
+    const produzindo = eff.filter(r=>r.cap>0).length;
+    const producao = eff.reduce((a,r)=>a+r.cap,0);
+    const paradas = eff.filter(r=>r.cap===0).length;
+    html += `<tr><td><span class="tag tag-${g}">${g}</span></td><td>${paradas}</td><td>${produzindo}</td><td>${producao}</td></tr>`;
+  });
+  html += `</tbody></table></div>`;
+
+  let bancasAtivas = 0, capacidadeMaxima = 0;
+  const bancasSempreParadas = [];
+  BANCAS_ALL.forEach(banca=>{
+    const f = FIXO_DATA[banca];
+    if(f && f.grupo){
+      bancasAtivas++;
+      capacidadeMaxima += CAPACIDADE_BANCA[banca] || (banca==="G25"?70:68);
+    } else {
+      bancasSempreParadas.push(banca);
+    }
+  });
+  html += `<p><b>Capacidade máxima (${bancasAtivas} bancas, sem folga):</b> ${capacidadeMaxima} un/dia</p>`;
+
+  ["F","H","B","D"].forEach(g=>{
+    const semFolguista = ESCALAS[g].filter(r=>r[3]==="Sem folguista").map(r=>r[0]);
+    if(semFolguista.length>0){
+      html += `<p class="warn">⚠️ Escala ${g}: ${semFolguista.join(", ")} sem folguista cadastrado — para${semFolguista.length>1?"m":""} nesse dia.</p>`;
+    }
+  });
+
+  if(bancasSempreParadas.length>0){
+    html += `<p>${bancasSempreParadas.join(", ")} ${bancasSempreParadas.length>1?"são bancas fixas paradas":"é uma banca fixa parada"} em todas as escalas — mude o grupo dela em Dados Originais pra ativar.</p>`;
+  }
+  html += `<p style="color:var(--muted);font-size:.7rem;">Calculado em tempo real a partir da aba Dados Originais.</p>`;
+
+  html += grupoHTML();
+
+  html += `<button id="btn-restauracao-global" class="reset-btn" style="margin-top:12px;" onclick="restauracaoGlobal()">🔄 Restauração Global (escalas F/H/B/D)</button>
+  <p style="color:var(--muted);font-size:.68rem;margin:4px 0 0;">Reconstrói as 4 escalas do zero a partir da aba Dados Originais, descartando qualquer ajuste pontual feito direto nas escalas.</p>`;
+
+  html += reordenarAbasHTML();
+
+  return html;
+}
+
+function reordenarAbasHTML(){
+  let html = `<h2 style="margin-top:16px;">🔀 Reordenar abas</h2>
+  <p style="color:var(--muted);font-size:.7rem;margin:0 0 8px;">Muda a ordem em que as abas aparecem lá em cima. Fica salvo neste dispositivo.</p>`;
+  html += `<div class="table-wrap"><table><tbody>`;
+  secoesOrdenadas().forEach((s,idx)=>{
+    html += `<tr>
+      <td style="width:2rem;color:var(--muted);">${idx+1}º</td>
+      <td>${s.label}</td>
+      <td style="text-align:right;white-space:nowrap;">
+        <button class="print-btn" style="margin:0 2px 0 0;padding:4px 10px;" ${idx===0?"disabled":""} onclick="moverAba('${s.id}',-1)">▲</button>
+        <button class="print-btn" style="margin:0;padding:4px 10px;" ${idx===secoesOrdenadas().length-1?"disabled":""} onclick="moverAba('${s.id}',1)">▼</button>
+      </td>
+    </tr>`;
+  });
+  html += `</tbody></table></div>`;
+  html += `<button class="undo-btn" style="margin-top:6px;" onclick="restaurarOrdemAbasPadrao()">Restaurar ordem padrão</button>`;
+  return html;
+}
+
+function grupoHTML(){
+  const fixosPorGrupo = {F:0,H:0,B:0,D:0};
+  Object.values(FIXO_DATA).forEach(f=>{
+    if(f.grupo && fixosPorGrupo.hasOwnProperty(f.grupo)) fixosPorGrupo[f.grupo]++;
+  });
+
+  const folguistasUnicos = {};
+  Object.values(FOLGUISTA_DATA).forEach(f=>{
+    if(f.nome && f.chapa) folguistasUnicos[f.nome.toUpperCase()] = f.nome;
+  });
+  const folguistasPorGrupo = {F:0,H:0,B:0,D:0};
+  let especiais = 0;
+  Object.values(folguistasUnicos).forEach(nome=>{
+    const g = grupoPessoalPorNome(nome);
+    if(g && folguistasPorGrupo.hasOwnProperty(g)) folguistasPorGrupo[g]++;
+    else especiais++;
+  });
+
+  let html = `<h2>Fundidores por grupo</h2>`;
+  html += `<div class="table-wrap"><table><thead><tr><th>Grupo</th><th>Fixos</th><th>Folguistas</th><th>Total</th></tr></thead><tbody>`;
+  let totalFixos = 0, totalFolg = 0, totalGeral = 0;
+  ["F","H","B","D"].forEach(g=>{
+    const total = fixosPorGrupo[g] + folguistasPorGrupo[g];
+    totalFixos += fixosPorGrupo[g];
+    totalFolg += folguistasPorGrupo[g];
+    totalGeral += total;
+    html += `<tr><td><span class="tag tag-${g}">${g}</span></td><td>${fixosPorGrupo[g]}</td><td>${folguistasPorGrupo[g]}</td><td><b>${total}</b></td></tr>`;
+  });
+  html += `<tr><td><b>Total</b></td><td><b>${totalFixos}</b></td><td><b>${totalFolg}</b></td><td><b>${totalGeral}</b></td></tr>`;
+  html += `</tbody></table></div>`;
+  if(especiais > 0){
+    html += `<p><i>${especiais} folguista(s) com grupo "Especial" (sem F/H/B/D) não entram nessa contagem.</i></p>`;
+  }
+  return html;
+}
+
+function salvarListaExtras(){
+  try{ localStorage.setItem("listaFundidoresExtras", JSON.stringify(LISTA_FUNDIDORES_EXTRAS)); }catch(e){}
+}
+
+let ajudanteFiltro = ["F","H","B","D"];
+
+let AJ_EXTRAS = {};
+try {
+  AJ_EXTRAS = JSON.parse(localStorage.getItem("ajudanteExtras") || "{}");
+} catch(e){ AJ_EXTRAS = {}; }
+["F","H","B","D"].forEach(g=>{ if(!AJ_EXTRAS[g]) AJ_EXTRAS[g] = []; });
+
+// ---- Atestados: chapa + dias afastado, pra marcar nas escalas F/H/B/D ----
+let ATESTADOS = [];
+try{
+  ATESTADOS = JSON.parse(localStorage.getItem("atestados") || "[]");
+}catch(e){ ATESTADOS = []; }
+
+function salvarAtestados(){
+  try{ localStorage.setItem("atestados", JSON.stringify(ATESTADOS)); }catch(e){}
+}
+
+// ---- Banco de Horas: lançamentos de crédito/débito por pessoa ----
+let BANCO_HORAS = [];
+try{
+  BANCO_HORAS = JSON.parse(localStorage.getItem("bancoHoras") || "[]");
+}catch(e){ BANCO_HORAS = []; }
+
+function salvarBancoHoras(){
+  try{ localStorage.setItem("bancoHoras", JSON.stringify(BANCO_HORAS)); }catch(e){}
+}
+
+function hojeSemHora(){
+  const h = new Date();
+  h.setHours(0,0,0,0);
+  return h;
+}
+
+// ---- Calendário de Folgas: escala 6x2, rodízio F → H → B → D → F..., 2 dias de folga por vez.
+// Âncora: a letra H folga em 31/07 e 01/08/2026 — todas as outras datas são calculadas a partir daí.
+const CICLO_LETRAS = ["F","H","B","D"];
+const DIAS_POR_JANELA_FOLGA = 2;
+const ANCORA_FOLGA_DATA = "2026-07-31";
+const ANCORA_FOLGA_LETRA = "H";
+
+function letraFolgaDoDia(dataStr){
+  const ancora = new Date(ANCORA_FOLGA_DATA+"T00:00:00");
+  const alvo = new Date(dataStr+"T00:00:00");
+  const diffDias = Math.round((alvo - ancora) / 86400000);
+  const cicloTotal = CICLO_LETRAS.length * DIAS_POR_JANELA_FOLGA;
+  const posicao = ((diffDias % cicloTotal) + cicloTotal) % cicloTotal;
+  const janela = Math.floor(posicao / DIAS_POR_JANELA_FOLGA);
+  const indiceAncora = CICLO_LETRAS.indexOf(ANCORA_FOLGA_LETRA);
+  const indiceLetra = (indiceAncora + janela) % CICLO_LETRAS.length;
+  return CICLO_LETRAS[indiceLetra];
+}
+
+const NOMES_MES = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+let calendarioAnoAtual = 2026;
+let calendarioMesAtual = 7; // Agosto (0-indexado)
+
+function mudarMesCalendario(delta){
+  calendarioMesAtual += delta;
+  if(calendarioMesAtual > 11){ calendarioMesAtual = 0; calendarioAnoAtual++; }
+  if(calendarioMesAtual < 0){ calendarioMesAtual = 11; calendarioAnoAtual--; }
+  const sec = document.getElementById("sec-calendario");
+  if(sec) sec.innerHTML = calendarioFolgasHTML();
+}
+
+function calendarioFolgasHTML(){
+  let html = `<h2>Calendário de Folgas (6x2)</h2>`;
+  html += `<p style="color:var(--muted);font-size:.72rem;margin:0 0 10px;">Rodízio F → H → B → D → F..., 2 dias de folga seguidos por letra. Baseado na folga da H em 31/07 e 01/08/2026.</p>`;
+
+  html += `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;">
+    <button class="print-btn" style="margin:0;padding:6px 14px;" onclick="mudarMesCalendario(-1)">◀</button>
+    <b style="font-size:.85rem;">${NOMES_MES[calendarioMesAtual]} de ${calendarioAnoAtual}</b>
+    <button class="print-btn" style="margin:0;padding:6px 14px;" onclick="mudarMesCalendario(1)">▶</button>
+  </div>`;
+
+  html += `<div class="table-wrap"><table style="text-align:center;"><thead><tr>
+    <th>Dom</th><th>Seg</th><th>Ter</th><th>Qua</th><th>Qui</th><th>Sex</th><th>Sáb</th>
+  </tr></thead><tbody><tr>`;
+
+  const primeiroDia = new Date(calendarioAnoAtual, calendarioMesAtual, 1);
+  const diaSemanaInicio = primeiroDia.getDay();
+  const diasNoMes = new Date(calendarioAnoAtual, calendarioMesAtual+1, 0).getDate();
+  const hoje = hojeSemHora();
+
+  let celula = 0;
+  for(let i=0;i<diaSemanaInicio;i++){ html += "<td></td>"; celula++; }
+  for(let dia=1; dia<=diasNoMes; dia++){
+    if(celula>0 && celula%7===0) html += "</tr><tr>";
+    const dataStr = `${calendarioAnoAtual}-${String(calendarioMesAtual+1).padStart(2,"0")}-${String(dia).padStart(2,"0")}`;
+    const letra = letraFolgaDoDia(dataStr);
+    const dataObj = new Date(calendarioAnoAtual, calendarioMesAtual, dia);
+    const ehHoje = dataObj.getTime() === hoje.getTime();
+    html += `<td style="padding:6px 2px;${ehHoje?'outline:2px solid #fff;border-radius:6px;':''}">
+      <div style="font-size:.68rem;color:var(--muted);">${dia}</div>
+      <span class="tag tag-${letra}" style="display:inline-block;margin-top:2px;min-width:20px;">${letra}</span>
+    </td>`;
+    celula++;
+  }
+  while(celula%7!==0){ html += "<td></td>"; celula++; }
+  html += "</tr></tbody></table></div>";
+
+  return html;
+}
+
+// Retorna o atestado ativo HOJE pra uma chapa, ou null se não tiver nenhum em vigor
+function atestadoAtivoHoje(chapa){
+  if(!chapa) return null;
+  const hoje = hojeSemHora();
+  return ATESTADOS.find(a=>{
+    if(a.chapa !== chapa) return false;
+    const inicio = new Date(a.dataInicio+"T00:00:00");
+    const fim = new Date(inicio);
+    fim.setDate(fim.getDate() + a.dias);
+    return hoje >= inicio && hoje < fim;
+  }) || null;
+}
+
+// Usa o Calendário de Folgas pra achar a próxima data (hoje ou futura) em que a
+// letra g é de fato a folga do dia — cada escala só "acontece" nessas datas.
+function proximaDataDaEscala(g){
+  const hoje = hojeSemHora();
+  for(let i=0;i<8;i++){
+    const d = new Date(hoje);
+    d.setDate(d.getDate()+i);
+    const dataStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+    if(letraFolgaDoDia(dataStr) === g) return d;
+  }
+  return hoje;
+}
+
+// Gera os próximos N dias (a partir de hoje) junto com a letra do rodízio de cada um —
+// base pra montar as abas de escala "duplicadas" com data (ex: "F 03/08", "F 04/08"...)
+function proximosDiasComLetra(n){
+  const hoje = hojeSemHora();
+  const dias = [];
+  for(let i=0;i<n;i++){
+    const d = new Date(hoje);
+    d.setDate(d.getDate()+i);
+    const dataStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+    dias.push({data:d, dataStr, letra: letraFolgaDoDia(dataStr)});
+  }
+  return dias;
+}
+
+// Verifica o atestado de uma chapa não em "hoje" cru, mas na data em que a escala g
+// realmente está em vigor pelo calendário — assim cada aba (F/H/B/D) fica coerente
+// com o dia certo do rodízio, em vez de todas mostrarem o status de hoje igualzinho.
+function atestadoAtivoNaEscala(chapa, g, dataAlvo){
+  if(!chapa) return null;
+  dataAlvo = dataAlvo || proximaDataDaEscala(g);
+  return ATESTADOS.find(a=>{
+    if(a.chapa !== chapa) return false;
+    const inicio = new Date(a.dataInicio+"T00:00:00");
+    const fim = new Date(inicio);
+    fim.setDate(fim.getDate() + a.dias);
+    return dataAlvo >= inicio && dataAlvo < fim;
+  }) || null;
+}
+
+// Mesma checagem, mas pelo NOME — usada nas listas de ajudantes (que às vezes não têm chapa)
+function atestadoAtivoNaEscalaPorNome(nome, g, dataAlvo){
+  if(!nome) return null;
+  const alvoNome = normalizaNome(nome);
+  dataAlvo = dataAlvo || proximaDataDaEscala(g);
+  return ATESTADOS.find(a=>{
+    if(normalizaNome(a.nome) !== alvoNome) return false;
+    const inicio = new Date(a.dataInicio+"T00:00:00");
+    const fim = new Date(inicio);
+    fim.setDate(fim.getDate() + a.dias);
+    return dataAlvo >= inicio && dataAlvo < fim;
+  }) || null;
+}
+
+// Monta o texto "🏥 Atestado (volta dd/mm/aaaa)" pra um nome, ou string vazia se não tiver
+function marcadorAtestadoPorNome(nome, g, dataAlvo){
+  const atestado = atestadoAtivoNaEscalaPorNome(nome, g, dataAlvo);
+  if(!atestado) return "";
+  return ` <span style="color:var(--special);font-weight:700;">🏥 Atestado (volta ${formatarDataBR(dataRetornoAtestado(atestado))})</span>`;
+}
+
+function diasRestantesAtestado(atestado){
+  const inicio = new Date(atestado.dataInicio+"T00:00:00");
+  const fim = new Date(inicio);
+  fim.setDate(fim.getDate() + atestado.dias);
+  return Math.ceil((fim - hojeSemHora()) / 86400000);
+}
+
+// Data em que a pessoa volta a trabalhar: início + dias corridos de atestado
+function dataRetornoAtestado(atestado){
+  const inicio = new Date(atestado.dataInicio+"T00:00:00");
+  const retorno = new Date(inicio);
+  retorno.setDate(retorno.getDate() + atestado.dias);
+  return retorno;
+}
+
+function formatarDataBR(d){
+  return String(d.getDate()).padStart(2,"0") + "/" + String(d.getMonth()+1).padStart(2,"0") + "/" + d.getFullYear();
+}
+
+// ---- Compensação Débito (CD): mesmo tratamento dos atestados nas escalas ----
+function debitoAtivoNaEscala(chapa, g, dataAlvo){
+  if(!chapa) return null;
+  dataAlvo = dataAlvo || proximaDataDaEscala(g);
+  return BANCO_HORAS.find(l=>{
+    if(l.tipo !== "Debito" || l.chapa !== chapa) return false;
+    const inicio = new Date(l.data+"T00:00:00");
+    const fim = new Date(inicio);
+    fim.setDate(fim.getDate() + l.dias);
+    return dataAlvo >= inicio && dataAlvo < fim;
+  }) || null;
+}
+
+// Mesma checagem, mas pelo NOME — usada nas listas de ajudantes (que às vezes não têm chapa)
+function debitoAtivoNaEscalaPorNome(nome, g, dataAlvo){
+  if(!nome) return null;
+  const alvoNome = normalizaNome(nome);
+  dataAlvo = dataAlvo || proximaDataDaEscala(g);
+  return BANCO_HORAS.find(l=>{
+    if(l.tipo !== "Debito" || normalizaNome(l.nome) !== alvoNome) return false;
+    const inicio = new Date(l.data+"T00:00:00");
+    const fim = new Date(inicio);
+    fim.setDate(fim.getDate() + l.dias);
+    return dataAlvo >= inicio && dataAlvo < fim;
+  }) || null;
+}
+
+// Data em que a pessoa volta a trabalhar: início + dias corridos do débito
+function dataRetornoDebito(lancamento){
+  const inicio = new Date(lancamento.data+"T00:00:00");
+  const retorno = new Date(inicio);
+  retorno.setDate(retorno.getDate() + lancamento.dias);
+  return retorno;
+}
+
+// Monta o texto "CD (volta dd/mm/aaaa)" pra um nome, ou string vazia se não tiver
+function marcadorDebitoPorNome(nome, g, dataAlvo){
+  const debito = debitoAtivoNaEscalaPorNome(nome, g, dataAlvo);
+  if(!debito) return "";
+  return ` <span style="color:#e88;font-weight:700;">CD (volta ${formatarDataBR(dataRetornoDebito(debito))})</span>`;
+}
+
+// Mostra o marcador de atestado se tiver, senão o de Compensação Débito (CD)
+function marcadorAusenciaPorNome(nome, g, dataAlvo){
+  const marcAtestado = marcadorAtestadoPorNome(nome, g, dataAlvo);
+  if(marcAtestado) return marcAtestado;
+  return marcadorDebitoPorNome(nome, g, dataAlvo);
+}
+
+// Força o recálculo de tudo que depende da data de hoje (atestados nas escalas etc.)
+function recalcularAtestadosNasEscalas(){
+  ultimoDiaRenderizado = hojeSemHora().getTime();
+  renderAll();
+  showSection(activeTab);
+  const btn = document.getElementById("btn-recalcular-atestados");
+  if(btn){
+    const original = "🔄 Recalcular atestados nas escalas";
+    btn.textContent = "✅ Escalas atualizadas!";
+    setTimeout(()=>{ btn.textContent = original; }, 1800);
+  }
+}
+
+// Aceita tanto uma chapa quanto um nome (completo ou parcial) digitado no campo
+// de atestado, e resolve pra chapa (ou, se a pessoa não tiver chapa cadastrada —
+// comum entre ajudantes — usa o nome como identificador mesmo).
+// Retorna {chapa}, {nome, grupo, semChapa:true}, {ambiguo:true, opcoes} ou {}.
+function resolverChapaOuNomeAtestado(valor){
+  if(!valor) return {};
+  const v = valor.trim();
+
+  // 1) já é uma chapa conhecida?
+  if(NOME_POR_CHAPA[v] || NOME_POR_CHAPA_ORIGINAL[v]) return {chapa: v};
+
+  const alvo = normalizaNome(v);
+
+  // 2) bate exatamente com um nome cadastrado no Banco de Dados (com ou sem chapa)
+  const exatos = BANCO_DADOS_LISTA.filter(p => normalizaNome(p.nome) === alvo);
+  if(exatos.length === 1){
+    return exatos[0].chapa ? {chapa: exatos[0].chapa} : {nome: exatos[0].nome, grupo: exatos[0].grupo, semChapa: true};
+  }
+  if(exatos.length > 1) return {ambiguo: true, opcoes: exatos};
+
+  // 3) busca parcial por nome (contém o texto digitado, sem acento/maiúsculas)
+  const candidatos = BANCO_DADOS_LISTA.filter(p => normalizaNome(p.nome).includes(alvo));
+  if(candidatos.length === 1){
+    const p = candidatos[0];
+    return p.chapa ? {chapa: p.chapa} : {nome: p.nome, grupo: p.grupo, semChapa: true};
+  }
+  if(candidatos.length > 1) return {ambiguo: true, opcoes: candidatos};
+  return {};
+}
+
+function adicionarAtestado(){
+  const chapaInput = document.getElementById("at-chapa");
+  const diasInput = document.getElementById("at-dias");
+  const dataInput = document.getElementById("at-data");
+  const valorDigitado = chapaInput.value.trim();
+  const dias = parseInt(diasInput.value, 10);
+  const dataInicio = dataInput.value || new Date().toISOString().slice(0,10);
+
+  if(!valorDigitado || !dias || dias <= 0 || !dataInicio){
+    alert("Preencha chapa ou nome, a quantidade de dias (maior que zero) e a data de lançamento.");
+    return;
+  }
+
+  const resultado = resolverChapaOuNomeAtestado(valorDigitado);
+  if(resultado.ambiguo){
+    alert("Mais de uma pessoa bate com esse nome:\n" + resultado.opcoes.map(p=>`${p.chapa || "sem chapa"} — ${p.nome}`).join("\n") + "\n\nDigite o nome completo (ou a chapa) pra continuar.");
+    return;
+  }
+  if(!resultado.chapa && !resultado.nome){
+    alert(`Não encontrei ninguém com a chapa/nome "${valorDigitado}". Confira o Banco de Dados.`);
+    return;
+  }
+
+  let chapa, nome, grupo;
+  if(resultado.semChapa){
+    chapa = "";
+    nome = resultado.nome;
+    grupo = resultado.grupo || null;
+  } else {
+    chapa = resultado.chapa;
+    nome = NOME_POR_CHAPA[chapa] || NOME_POR_CHAPA_ORIGINAL[chapa] || "(nome não encontrado pra essa chapa)";
+    grupo = GRUPO_ORIGINAL_POR_CHAPA[chapa] || null;
+  }
+
+  ATESTADOS.push({id: Date.now(), chapa, nome, grupo, dias, dataInicio});
+  salvarAtestados();
+
+  chapaInput.value = "";
+  diasInput.value = "";
+  if(dataInput) dataInput.value = new Date().toISOString().slice(0,10);
+
+  renderAll();
+  showSection(activeTab);
+}
+
+function removerAtestado(id){
+  ATESTADOS = ATESTADOS.filter(a=>a.id!==id);
+  salvarAtestados();
+  renderAll();
+  showSection(activeTab);
+}
+
+function adicionarBancoHoras(){
+  const chapaInput = document.getElementById("bh-chapa");
+  const diasInput = document.getElementById("bh-dias");
+  const tipoInput = document.getElementById("bh-tipo");
+  const dataInput = document.getElementById("bh-data");
+  const obsInput = document.getElementById("bh-obs");
+  const valorDigitado = chapaInput.value.trim();
+  const dias = parseInt(diasInput.value, 10);
+  const tipo = tipoInput.value; // "Credito" ou "Debito"
+  const data = dataInput.value || new Date().toISOString().slice(0,10);
+
+  if(!valorDigitado || !dias || dias <= 0 || !data){
+    alert("Preencha chapa ou nome, a data e a quantidade de dias (maior que zero).");
+    return;
+  }
+
+  const resultado = resolverChapaOuNomeAtestado(valorDigitado);
+  if(resultado.ambiguo){
+    alert("Mais de uma pessoa bate com esse nome:\n" + resultado.opcoes.map(p=>`${p.chapa || "sem chapa"} — ${p.nome}`).join("\n") + "\n\nDigite o nome completo (ou a chapa) pra continuar.");
+    return;
+  }
+  if(!resultado.chapa && !resultado.nome){
+    alert(`Não encontrei ninguém com a chapa/nome "${valorDigitado}". Confira o Banco de Dados.`);
+    return;
+  }
+
+  let chapa, nome, grupo;
+  if(resultado.semChapa){
+    chapa = "";
+    nome = resultado.nome;
+    grupo = resultado.grupo || null;
+  } else {
+    chapa = resultado.chapa;
+    nome = NOME_POR_CHAPA[chapa] || NOME_POR_CHAPA_ORIGINAL[chapa] || "(nome não encontrado pra essa chapa)";
+    grupo = GRUPO_ORIGINAL_POR_CHAPA[chapa] || null;
+  }
+
+  BANCO_HORAS.push({id: Date.now(), chapa, nome, grupo, dias, tipo, obs: (obsInput.value||"").trim(), data});
+  salvarBancoHoras();
+
+  chapaInput.value = "";
+  diasInput.value = "";
+  obsInput.value = "";
+  if(dataInput) dataInput.value = new Date().toISOString().slice(0,10);
+
+  renderAll();
+  showSection(activeTab);
+}
+
+function removerBancoHoras(id){
+  BANCO_HORAS = BANCO_HORAS.filter(a=>a.id!==id);
+  salvarBancoHoras();
+  renderAll();
+  showSection(activeTab);
+}
+
+// Soma os lançamentos por pessoa (chapa se tiver, senão nome), pra mostrar o saldo total
+function saldosBancoHoras(){
+  const mapa = {};
+  BANCO_HORAS.forEach(l=>{
+    const chave = l.chapa || normalizaNome(l.nome);
+    if(!mapa[chave]) mapa[chave] = {nome: l.nome, chapa: l.chapa, grupo: l.grupo, saldo: 0};
+    mapa[chave].saldo += (l.tipo === "Debito" ? -l.dias : l.dias);
+  });
+  return Object.values(mapa).sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR'));
+}
+
+function salvarTodosAtestados(){
+  let atualizados = 0;
+  let erro = false;
+  ATESTADOS.forEach(a=>{
+    const input = document.getElementById("at-dias-edit-"+a.id);
+    if(!input) return;
+    const novosDias = parseInt(input.value, 10);
+    if(!novosDias || novosDias <= 0){
+      erro = true;
+      return;
+    }
+    if(novosDias !== a.dias){
+      a.dias = novosDias;
+      atualizados++;
+    }
+  });
+
+  if(erro){
+    alert("Tem algum campo de dias inválido (vazio ou zero) — confira antes de salvar.");
+    return;
+  }
+
+  salvarAtestados();
+  renderAll();
+  showSection(activeTab);
+
+  const fb = document.getElementById("copy-feedback-atestados");
+  if(fb){
+    fb.textContent = atualizados > 0 ? `✅ ${atualizados} atestado(s) atualizado(s)!` : "Nenhuma mudança pra salvar.";
+    setTimeout(()=>{ fb.textContent = ""; }, 2500);
+  }
+}
+
+function atestadosHTML(){
+  let html = `<h2>Atestados</h2>`;
+  html += `<p style="color:var(--muted);font-size:.72rem;margin:0 0 10px;">Cadastre a chapa OU o nome (com autocomplete), a data de lançamento e a quantidade de dias — o restante (nome, chapa, letra da escala com a cor certa) é identificado automaticamente. Enquanto o período estiver em vigor, a banca aparece marcada como "🏥 Atestado" nas escalas F/H/B/D.</p>`;
+
+  html += `<div class="add-ajudante">
+    <input type="text" id="at-chapa" list="at-sugestoes" placeholder="Chapa ou nome..." style="max-width:160px;background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:.72rem;">
+    <datalist id="at-sugestoes">
+      ${BANCO_DADOS_LISTA.map(p=>`<option value="${p.nome.replace(/"/g,'&quot;')}">${p.chapa || "sem chapa"} — ${p.nome}</option>`).join("")}
+    </datalist>
+    <input type="date" id="at-data" value="${new Date().toISOString().slice(0,10)}" style="background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:.72rem;">
+    <input type="number" id="at-dias" placeholder="Dias" min="1" style="max-width:70px;background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:.72rem;">
+    <button class="add-btn" onclick="adicionarAtestado()">+ Adicionar</button>
+  </div>
+  <button id="btn-recalcular-atestados" class="reset-btn" style="margin-top:6px;" onclick="recalcularAtestadosNasEscalas()">🔄 Recalcular atestados nas escalas</button>
+  <p style="color:var(--muted);font-size:.68rem;margin:4px 0 10px;">O app já recalcula sozinho quando o dia muda ou quando você reabre o app, mas esse botão força a atualização na hora, se precisar conferir agora.</p>
+  <span id="copy-feedback-atestados" class="copy-feedback"></span>`;
+
+  html += `<div class="table-wrap"><table><thead><tr><th>Grupo</th><th>Chapa</th><th>Fundidor</th><th>Início</th><th>Dias</th><th>Retorno</th><th>Situação</th><th></th></tr></thead><tbody>`;
+  const hoje = hojeSemHora();
+  const lista = ATESTADOS.slice().sort((a,b)=>a.dataInicio.localeCompare(b.dataInicio));
+  if(lista.length === 0){
+    html += `<tr><td colspan="8" style="color:var(--muted);text-align:center;">Nenhum atestado cadastrado.</td></tr>`;
+  }
+  lista.forEach(a=>{
+    const inicio = new Date(a.dataInicio+"T00:00:00");
+    const diasRestantes = diasRestantesAtestado(a);
+    let situacao;
+    if(hoje < inicio){
+      situacao = `Começa em ${Math.ceil((inicio-hoje)/86400000)} dia(s)`;
+    } else if(diasRestantes > 0){
+      situacao = `🏥 Em atestado (${diasRestantes} dia(s) restante(s))`;
+    } else {
+      situacao = `✅ Encerrado`;
+    }
+    const dataFmt = a.dataInicio.split("-").reverse().join("/");
+    const retornoFmt = formatarDataBR(dataRetornoAtestado(a));
+    const tagGrupo = a.grupo ? `<span class="tag tag-${a.grupo}">${a.grupo}</span>` : `<span class="tag tag-Especial">?</span>`;
+    html += `<tr><td>${tagGrupo}</td><td>${a.chapa || '<span style="color:var(--muted);">sem chapa</span>'}</td><td>${a.nome}</td><td>${dataFmt}</td><td><input type="number" min="1" id="at-dias-edit-${a.id}" value="${a.dias}" style="width:48px;background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:3px 4px;font-size:.72rem;"></td><td><b>${retornoFmt}</b></td><td>${situacao}</td><td><span class="del-btn" onclick="removerAtestado(${a.id})">✕</span></td></tr>`;
+  });
+  html += `</tbody></table></div>`;
+  if(lista.length > 0){
+    html += `<button class="undo-btn" style="margin-top:6px;" onclick="salvarTodosAtestados()">💾 Salvar alterações</button>`;
+  }
+
+  html += bancoHorasHTML();
+
+  return html;
+}
+
+function bancoHorasHTML(){
+  let html = `<h2 style="margin-top:18px;">🕐 Banco de Horas</h2>`;
+  html += `<p style="color:var(--muted);font-size:.72rem;margin:0 0 10px;">Lance dias inteiros de crédito (compensação a favor) ou débito (compensação a pagar) pra cada pessoa. O saldo é a soma de todos os lançamentos.</p>`;
+
+  html += `<div class="add-ajudante">
+    <input type="text" id="bh-chapa" list="at-sugestoes" placeholder="Chapa ou nome..." style="min-width:160px;background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:.72rem;">
+    <select id="bh-tipo">
+      <option value="Credito">Crédito</option>
+      <option value="Debito">Débito</option>
+    </select>
+    <input type="date" id="bh-data" value="${new Date().toISOString().slice(0,10)}" style="background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:.72rem;">
+    <input type="number" min="1" id="bh-dias" placeholder="Dias" style="max-width:70px;background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:.72rem;">
+    <input type="text" id="bh-obs" placeholder="Motivo (opcional)..." style="min-width:140px;background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:.72rem;">
+    <button class="add-btn" onclick="adicionarBancoHoras()">+ Lançar</button>
+  </div>`;
+
+  const saldos = saldosBancoHoras();
+  html += `<h3 style="margin-top:12px;">Saldo por pessoa</h3>`;
+  html += `<div class="table-wrap"><table><thead><tr><th>Grupo</th><th>Chapa</th><th>Nome</th><th>Saldo</th></tr></thead><tbody>`;
+  if(saldos.length === 0){
+    html += `<tr><td colspan="4" style="color:var(--muted);text-align:center;">Nenhum lançamento ainda.</td></tr>`;
+  }
+  saldos.forEach(s=>{
+    const tagGrupo = s.grupo ? `<span class="tag tag-${s.grupo}">${s.grupo}</span>` : `<span class="tag tag-Especial">?</span>`;
+    const corSaldo = s.saldo > 0 ? "#6fdc8c" : (s.saldo < 0 ? "#e88" : "var(--muted)");
+    const sinal = s.saldo > 0 ? "+" : "";
+    const rotulo = s.saldo === 1 || s.saldo === -1 ? "dia" : "dias";
+    html += `<tr><td>${tagGrupo}</td><td>${s.chapa || '<span style="color:var(--muted);">sem chapa</span>'}</td><td>${s.nome}</td><td style="color:${corSaldo};font-weight:700;">${sinal}${s.saldo} ${rotulo}</td></tr>`;
+  });
+  html += `</tbody></table></div>`;
+
+  html += `<h3 style="margin-top:12px;">Histórico de lançamentos</h3>`;
+  html += `<div class="table-wrap"><table><thead><tr><th>Data</th><th>Nome</th><th>Tipo</th><th>Dias</th><th>Motivo</th><th></th></tr></thead><tbody>`;
+  const historico = BANCO_HORAS.slice().sort((a,b)=>b.data.localeCompare(a.data) || b.id-a.id);
+  if(historico.length === 0){
+    html += `<tr><td colspan="6" style="color:var(--muted);text-align:center;">Nenhum lançamento ainda.</td></tr>`;
+  }
+  historico.forEach(l=>{
+    const dataFmt = l.data.split("-").reverse().join("/");
+    const ehCredito = l.tipo !== "Debito";
+    const corH = ehCredito ? "#6fdc8c" : "#e88";
+    html += `<tr><td>${dataFmt}</td><td>${l.nome}</td><td style="color:${corH};font-weight:700;">${ehCredito?"Crédito":"Débito"}</td><td style="color:${corH};font-weight:700;">${l.dias}</td><td>${l.obs || "-"}</td><td><span class="del-btn" onclick="removerBancoHoras(${l.id})">✕</span></td></tr>`;
+  });
+  html += `</tbody></table></div>`;
+
+  return html;
+}
+
+// Ajudantes cadastrados no Banco de Dados pra um grupo — lido ao vivo, então
+// qualquer mudança lá (adicionar, trocar tipo/grupo, remover) já reflete aqui.
+function ajudantesDoBancoDados(g){
+  return BANCO_DADOS_LISTA.filter(p=>(p.tipo==="Ajudante" || p.tipo==="Fundidor/Ajudante") && p.grupo===g).map(p=>p.nome);
+}
+
+function ajudantesDoGrupo(g){
+  return ajudantesDoBancoDados(g).concat(AJ_EXTRAS[g]);
+}
+
+function salvarExtras(){
+  try{ localStorage.setItem("ajudanteExtras", JSON.stringify(AJ_EXTRAS)); }catch(e){}
+}
+
+function adicionarAjudanteExtra(){
+  const input = document.getElementById("novo-ajudante-nome");
+  const select = document.getElementById("novo-ajudante-grupo");
+  const nome = input.value.trim();
+  const grupo = select.value;
+  if(!nome) return;
+  AJ_EXTRAS[grupo].push(nome);
+  salvarExtras();
+  input.value = "";
+  document.getElementById("sec-ajudantes").innerHTML = ajudantesListaHTML();
+}
+
+function removerAjudanteExtra(g, idx){
+  AJ_EXTRAS[g].splice(idx,1);
+  salvarExtras();
+  document.getElementById("sec-ajudantes").innerHTML = ajudantesListaHTML();
+}
+
+function ajudantesListaHTML(){
+  let html = `<h2>Lista de Ajudantes por Grupo</h2>`;
+
+  html += `<div class="filtro-letras">`;
+  ["F","H","B","D"].forEach(g=>{
+    const ativo = ajudanteFiltro.includes(g) ? " active" : "";
+    html += `<button class="filtro-btn filtro-${g}${ativo}" onclick="toggleFiltroAjudante('${g}')">${g}</button>`;
+  });
+  html += `<button class="filtro-btn" onclick="selecionarTodosAjudantes()">Todos</button>`;
+  html += `</div>`;
+
+  const grupos = ["F","H","B","D"].filter(g=>ajudanteFiltro.includes(g));
+  const gruposComExtraForaDoFiltro = ["F","H","B","D"].filter(g=>!ajudanteFiltro.includes(g) && AJ_EXTRAS[g].length>0);
+
+  html += `<div class="kpis">`;
+  grupos.forEach(g=>{
+    html += `<div class="kpi"><div class="n">${ajudantesDoGrupo(g).length}</div><div class="l">Ajudantes ${g}</div></div>`;
+  });
+  const total = grupos.reduce((a,g)=>a+ajudantesDoGrupo(g).length,0);
+  html += `<div class="kpi"><div class="n">${total}</div><div class="l">Total selecionado</div></div>`;
+  html += `</div>`;
+
+  const sugestoes = [];
+  ["F","H","B","D"].forEach(g=>ajudantesDoBancoDados(g).forEach(n=>sugestoes.push(n)));
+  LISTA_FUNDIDORES.forEach(r=>sugestoes.push(r[2]));
+  const sugestoesUnicas = [...new Set(sugestoes)].sort();
+
+  html += `<div class="add-ajudante">
+    <input type="text" id="novo-ajudante-nome" list="ajudante-sugestoes" placeholder="Nome do ajudante ou fundidor...">
+    <datalist id="ajudante-sugestoes">
+      ${sugestoesUnicas.map(n=>`<option value="${n.replace(/"/g,'&quot;')}">`).join("")}
+    </datalist>
+    <select id="novo-ajudante-grupo">
+      <option value="F">F</option>
+      <option value="H">H</option>
+      <option value="B">B</option>
+      <option value="D">D</option>
+    </select>
+    <button class="add-btn" onclick="adicionarAjudanteExtra()">+ Adicionar</button>
+  </div>`;
+
+  html += `<button class="whatsapp-btn" onclick="copiarWhatsAppAjudantes()">📋 Copiar lista para WhatsApp</button>
+  <span id="copy-feedback-ajudantes" class="copy-feedback"></span>`;
+
+  if(grupos.length === 0 && gruposComExtraForaDoFiltro.length === 0){
+    html += `<p style="color:var(--muted);">Nenhum grupo selecionado.</p>`;
+    return html;
+  }
+
+  html += `<div class="table-wrap"><table><thead><tr><th>Grupo</th><th>Ajudante</th></tr></thead><tbody>`;
+  grupos.forEach(g=>{
+    const nomesOriginais = ajudantesDoBancoDados(g);
+    const nomesExtras = AJ_EXTRAS[g];
+    let primeiro = true;
+    nomesOriginais.forEach(nome=>{
+      html += `<tr class="ajrow-${g}">
+        <td>${primeiro ? `<span class="tag tag-${g}">${g}</span>` : ""}</td>
+        <td>${nome}${marcadorAusenciaPorNome(nome, g)}</td>
+      </tr>`;
+      primeiro = false;
+    });
+    nomesExtras.forEach((nome,idx)=>{
+      html += `<tr class="ajrow-${g}">
+        <td>${primeiro ? `<span class="tag tag-${g}">${g}</span>` : ""}</td>
+        <td>${nome} <span class="tag-extra">extra</span> <span class="del-btn" onclick="removerAjudanteExtra('${g}',${idx})">✕</span>${marcadorAusenciaPorNome(nome, g)}</td>
+      </tr>`;
+      primeiro = false;
+    });
+  });
+
+  if(gruposComExtraForaDoFiltro.length > 0){
+    gruposComExtraForaDoFiltro.forEach(g=>{
+      let primeiro = true;
+      AJ_EXTRAS[g].forEach((nome,idx)=>{
+        html += `<tr class="ajrow-${g}">
+          <td>${primeiro ? `<span class="tag tag-${g}">${g}</span>` : ""}</td>
+          <td>${nome} <span class="tag-extra">extra</span> <span class="del-btn" onclick="removerAjudanteExtra('${g}',${idx})">✕</span></td>
+        </tr>`;
+        primeiro = false;
+      });
+    });
+  }
+
+  html += `</tbody></table></div>`;
+  html += `<p style="color:var(--muted);font-size:.8rem;">Cada ajudante folga no dia da escala do seu próprio grupo (mesma lógica dos fundidores/folguistas).</p>`;
+  return html;
+}
+
+function toggleFiltroAjudante(g){
+  const idx = ajudanteFiltro.indexOf(g);
+  if(idx>=0){
+    ajudanteFiltro.splice(idx,1);
+  } else {
+    ajudanteFiltro.push(g);
+  }
+  document.getElementById("sec-ajudantes").innerHTML = ajudantesListaHTML();
+}
+
+function selecionarTodosAjudantes(){
+  ajudanteFiltro = ["F","H","B","D"];
+  document.getElementById("sec-ajudantes").innerHTML = ajudantesListaHTML();
+}
+
+const GRUPO_BG = {
+  F: "rgba(91,139,208,.60)",
+  H: "rgba(201,107,107,.60)",
+  B: "rgba(127,166,80,.60)",
+  D: "rgba(217,138,61,.60)",
+  Especial: "rgba(201,180,88,.60)",
+  null: "transparent"
+};
+
+// Grupo pessoal de cada folguista (o grupo em que ele mesmo folga)
+const FOLGUISTA_GRUPO_PROPRIO = {
+  "RONILSON DE JESUS DA SILVA": "F",
+  "ROBSON DE JESUS NASCIMENTO": "F",
+  "CARLOS ANDRE SANTANA": "F",
+  "DIEGO SOUZA NOGUEIRA": "F",
+  "LEONES DE FREITAS SIMOES": "B",
+  "CARLOS RODRIGO ALVES GUIMARAES": "B",
+  "JOSE CARLOS SANTANA": "D",
+  "PHABLO EDUARDO ABREU DE SOUZA": "Especial"
+};
+
+// Carrega mudanças de grupo salvas (feitas na Lista Fundidores), sobrescrevendo o padrão acima
+try{
+  const savedFolgGrupo = JSON.parse(localStorage.getItem("folguistaGrupoProprio") || "{}");
+  Object.assign(FOLGUISTA_GRUPO_PROPRIO, savedFolgGrupo);
+}catch(e){}
+
+function grupoPessoalPorNome(nome, excluirBanca, chapa){
+  // 0) chapa é o identificador mais confiável (nome pode ter grafia divergente
+  // entre Banco de Dados e Dados Originais) — checa primeiro se ela tiver sido informada
+  if(chapa && GRUPO_ORIGINAL_POR_CHAPA.hasOwnProperty(chapa)) return GRUPO_ORIGINAL_POR_CHAPA[chapa];
+  if(!nome) return null;
+  const nomeUp = nome.toUpperCase();
+  // 1) se a pessoa tem banca fixa propria HOJE (fora a que esta sendo editada agora), o grupo dela e o grupo dessa banca
+  const fixo = Object.entries(FIXO_DATA).find(([b,f])=>b!==excluirBanca && f.nome && f.nome.toUpperCase()===nomeUp);
+  if(fixo && fixo[1].grupo) return fixo[1].grupo;
+  // 2) senao, procura no mapa de folguistas conhecidos
+  if(FOLGUISTA_GRUPO_PROPRIO.hasOwnProperty(nomeUp) && FOLGUISTA_GRUPO_PROPRIO[nomeUp]) return FOLGUISTA_GRUPO_PROPRIO[nomeUp];
+  // 3) por ultimo, o grupo original dela na planilha (mesmo que a banca fixa tenha mudado depois)
+  if(GRUPO_ORIGINAL_POR_NOME.hasOwnProperty(nomeUp)) return GRUPO_ORIGINAL_POR_NOME[nomeUp];
+  return null;
+}
+
+// Calcula, pra cada escala, quem esta trabalhando (nao folga nesse dia) mas nao cobre nenhuma banca dela
+function calcularSemBancaTrabalhando(){
+  const resultado = {F:[],H:[],B:[],D:[]};
+
+  // pessoas unicas registradas como folguista em pelo menos uma banca
+  const folguistasUnicos = {};
+  Object.values(FOLGUISTA_DATA).forEach(f=>{
+    if(f.nome && f.chapa) folguistasUnicos[f.nome.toUpperCase()] = f.nome;
+  });
+
+  Object.values(folguistasUnicos).forEach(nome=>{
+    const grupoProprio = grupoPessoalPorNome(nome);
+    if(!grupoProprio || grupoProprio === "Especial") return; // caso especial, nao entra nessa conta
+    ["F","H","B","D"].forEach(g=>{
+      if(grupoProprio === g) return; // esse e o dia de folga dela, nao conta como "trabalhando"
+      const cobreAlguma = Object.keys(FOLGUISTA_DATA).some(banca=>{
+        const folg = FOLGUISTA_DATA[banca];
+        const fixo = FIXO_DATA[banca];
+        return folg && folg.nome && folg.nome.toUpperCase() === nome.toUpperCase()
+          && fixo && fixo.grupo === g;
+      });
+      if(!cobreAlguma){
+        resultado[g].push(nome);
+      }
+    });
+  });
+
+  return resultado;
+}
+
+SEM_BANCA_TRABALHANDO = calcularSemBancaTrabalhando();
+
+function dadosOriginaisHTML(){
+  let html = `<h2>Dados Originais — Fixo e Folguista</h2>`;
+  html += `<p style="color:var(--muted);font-size:.75rem;margin:0 0 10px;">Edite quem é o fixo (e o grupo F/H/B/D) e quem é o folguista de cada banca. Ao aplicar, as 4 escalas são refeitas do zero com base nisso.</p>`;
+
+  html += `<button class="whatsapp-btn" onclick="aplicarDadosOriginais()" style="background:#1f3d2b;color:#6fdc8c;border-color:#2f6b45;">✅ Aplicar alterações e refazer escalas</button>`;
+  html += `<button class="reset-btn" style="margin-top:6px;" onclick="restaurarDadosOriginais()">Restaurar a Aba</button>`;
+  html += `<button id="btn-tornar-padrao" class="undo-btn" style="margin-top:6px;" onclick="tornarDadosPadrao()">⭐ Salvar dados</button>`;
+  html += `<button class="whatsapp-btn" style="margin-top:6px;" onclick="corrigirNomesEmDadosOriginaisComImportacaoExcel()">📝 Corrigir nomes em Dados Originais (com esta planilha)</button>
+  <span id="copy-feedback-dadosoriginais-corrigir" class="copy-feedback"></span>`;
+
+  const td = "padding:3px 4px;border:1px solid var(--border);";
+  const th = "padding:5px;border:1px solid var(--border);background:#12151b;";
+
+  html += `<div class="table-wrap" style="margin-top:10px;"><table style="border-collapse:collapse;font-size:.7rem;width:100%;">
+    <thead><tr>
+      <th style="${th}background:#665a10;">Banca</th>
+      <th style="${th}" colspan="3">Fixo</th>
+      <th style="${th}" colspan="2">Folguista</th>
+    </tr></thead><tbody>`;
+
+  BANCAS_ALL.forEach(banca=>{
+    const f = FIXO_DATA[banca] || {chapa:"",nome:"",grupo:null};
+    const bg = GRUPO_BG[f.grupo];
+    const folg = FOLGUISTA_DATA[banca] || {chapa:"",nome:""};
+    const grupoFolg = grupoPessoalPorNome(folg.nome, null, folg.chapa);
+    const bgFolg = GRUPO_BG[grupoFolg];
+
+    html += `<tr>
+      <td style="${td}background:#665a10;font-weight:700;">${banca}</td>
+      <td style="${td}background:${bg};"><span class="chapa-cell" contenteditable="true" data-orig="fixo-chapa" data-banca="${banca}" style="font-size:.72rem;font-weight:700;min-height:auto;padding:1px 3px;">${f.chapa||""}</span></td>
+      <td style="${td}background:${bg};"><span class="chapa-cell" contenteditable="true" data-orig="fixo-nome" data-banca="${banca}" style="font-weight:600;font-size:.72rem;min-width:120px;white-space:nowrap;">${f.nome||""}</span></td>
+      <td style="${td}background:${bg};">
+        <span style="position:relative;display:inline-block;min-width:38px;">
+          <span style="font-size:.72rem;font-weight:700;pointer-events:none;">${f.grupo || "Parada"}</span>
+          <select data-orig="fixo-grupo" data-banca="${banca}" style="position:absolute;inset:0;opacity:0;width:100%;height:100%;">
+            <option value="" ${f.grupo===null?"selected":""}>Parada</option>
+            <option value="F" ${f.grupo==="F"?"selected":""}>F</option>
+            <option value="H" ${f.grupo==="H"?"selected":""}>H</option>
+            <option value="B" ${f.grupo==="B"?"selected":""}>B</option>
+            <option value="D" ${f.grupo==="D"?"selected":""}>D</option>
+          </select>
+        </span>
+      </td>`;
+
+    html += `<td style="${td}background:${bgFolg};"><span class="chapa-cell" contenteditable="true" data-orig="folg-chapa" data-banca="${banca}" style="font-size:.72rem;font-weight:700;min-height:auto;padding:1px 3px;">${folg.chapa||""}</span></td>
+      <td style="${td}background:${bgFolg};"><span class="chapa-cell" contenteditable="true" data-orig="folg-nome" data-banca="${banca}" style="font-weight:600;font-size:.72rem;min-width:120px;white-space:nowrap;">${folg.nome||""}</span></td>`;
+
+    html += `</tr>`;
+  });
+
+  html += `</tbody></table></div>`;
+  html += `<span id="copy-feedback-original" class="copy-feedback"></span>`;
+  return html;
+}
+
+function lerDadosOriginaisDoDOM(){
+  const sec = document.getElementById("sec-original");
+  if(!sec) return;
+  sec.querySelectorAll('[data-orig="fixo-chapa"]').forEach(el=>{
+    const banca = el.dataset.banca;
+    if(!FIXO_DATA[banca]) FIXO_DATA[banca] = {chapa:"",nome:"",grupo:null};
+    FIXO_DATA[banca].chapa = el.textContent.trim();
+  });
+  sec.querySelectorAll('[data-orig="fixo-nome"]').forEach(el=>{
+    const banca = el.dataset.banca;
+    if(!FIXO_DATA[banca]) FIXO_DATA[banca] = {chapa:"",nome:"",grupo:null};
+    FIXO_DATA[banca].nome = el.textContent.trim();
+  });
+  sec.querySelectorAll('select[data-orig="fixo-grupo"]').forEach(el=>{
+    const banca = el.dataset.banca;
+    if(!FIXO_DATA[banca]) FIXO_DATA[banca] = {chapa:"",nome:"",grupo:null};
+    FIXO_DATA[banca].grupo = el.value || null;
+    if(FIXO_DATA[banca].grupo === null && !FIXO_DATA[banca].nome){
+      FIXO_DATA[banca].nome = "BANCA PARADA";
+    }
+  });
+  sec.querySelectorAll('[data-orig="folg-chapa"]').forEach(el=>{
+    const banca = el.dataset.banca;
+    if(!FOLGUISTA_DATA[banca]) FOLGUISTA_DATA[banca] = {chapa:"",nome:""};
+    FOLGUISTA_DATA[banca].chapa = el.textContent.trim();
+  });
+  sec.querySelectorAll('[data-orig="folg-nome"]').forEach(el=>{
+    const banca = el.dataset.banca;
+    if(!FOLGUISTA_DATA[banca]) FOLGUISTA_DATA[banca] = {chapa:"",nome:""};
+    FOLGUISTA_DATA[banca].nome = el.textContent.trim();
+  });
+}
+
+function aplicarDadosOriginais(){
+  lerDadosOriginaisDoDOM();
+
+  // limpa ajustes avulsos antigos feitos direto nas escalas, pra nao mascarar os novos dados originais
+  BANCA_OVERRIDES = {};
+  try{ localStorage.removeItem("bancaOverrides"); }catch(e){}
+  // limpa também overrides antigos de chapa por nome (sistema legado), mesmo motivo
+  CHAPA_OVERRIDES = {};
+  try{ localStorage.removeItem("chapaOverrides"); }catch(e){}
+
+  try{
+    localStorage.setItem("fixoData", JSON.stringify(FIXO_DATA));
+    localStorage.setItem("folguistaData", JSON.stringify(FOLGUISTA_DATA));
+  }catch(e){}
+
+  // reforça a correção de chapa/nome via Banco de Dados, cobrindo qualquer
+  // edição que não tenha passado pelo ajuste automático campo a campo
+  corrigirDadosOriginaisComBancoDados();
+
+  // Toda vez que este botão é usado, as escalas F/H/B/D (e as listas derivadas delas)
+  // são recalculadas do zero a partir de Dados Originais — que passa a ser a fonte
+  // de verdade dos informativos exibidos nas escalas.
+  ESCALAS = gerarEscalas();
+  NOME_POR_CHAPA = construirNomePorChapa();
+  LISTA_FUNDIDORES = gerarListaFundidores();
+  SEM_BANCA_TRABALHANDO = calcularSemBancaTrabalhando();
+  sincronizarBancasBancoDados();
+  CAPACIDADE_BANCA = {};
+  ["F","H","B","D"].forEach(g=>{
+    ESCALAS[g].forEach(r=>{ CAPACIDADE_BANCA[r[0]] = (r[0]==="G25") ? 70 : 68; });
+  });
+
+  renderAll();
+  showSection(activeTab);
+
+  const fb = document.getElementById("copy-feedback-original");
+  if(fb){
+    fb.textContent = "✅ Escalas F/H/B/D refeitas a partir de Dados Originais!";
+    setTimeout(()=>{ fb.textContent = ""; }, 2500);
+  }
+}
+
+function restaurarDadosOriginais(){
+  let d;
+  try{
+    const baseFixo = JSON.parse(localStorage.getItem("fixoDataBaseline"));
+    const baseFolg = JSON.parse(localStorage.getItem("folguistaDataBaseline"));
+    if(baseFixo && baseFolg){
+      d = {fixo: baseFixo, folguista: baseFolg};
+    }
+  }catch(e){}
+  if(!d) d = derivarDadosOriginais();
+
+  FIXO_DATA = d.fixo;
+  FOLGUISTA_DATA = d.folguista;
+  try{
+    localStorage.removeItem("fixoData");
+    localStorage.removeItem("folguistaData");
+  }catch(e){}
+  aplicarDadosOriginais();
+}
+
+let tornarPadraoPendente = false;
+let tornarPadraoTimeoutId = null;
+
+function tornarDadosPadrao(){
+  const btn = document.getElementById("btn-tornar-padrao");
+  if(!tornarPadraoPendente){
+    tornarPadraoPendente = true;
+    if(btn){
+      btn.textContent = "Toque de novo para confirmar";
+      btn.classList.add("confirm-pending");
+    }
+    tornarPadraoTimeoutId = setTimeout(()=>{
+      tornarPadraoPendente = false;
+      if(btn){
+        btn.textContent = "⭐ Salvar dados";
+        btn.classList.remove("confirm-pending");
+      }
+    }, 3000);
+    return;
+  }
+
+  clearTimeout(tornarPadraoTimeoutId);
+  tornarPadraoPendente = false;
+
+  // captura qualquer edicao que ainda esteja na tela mas nao foi confirmada
+  lerDadosOriginaisDoDOM();
+
+  let salvouOk = true;
+  try{
+    // salva nas DUAS gavetas: padrao e sessao atual
+    // (se salvasse so no padrao, a gaveta de sessao antiga sobrescreveria ao recarregar)
+    localStorage.setItem("fixoDataBaseline", JSON.stringify(FIXO_DATA));
+    localStorage.setItem("folguistaDataBaseline", JSON.stringify(FOLGUISTA_DATA));
+    localStorage.setItem("fixoData", JSON.stringify(FIXO_DATA));
+    localStorage.setItem("folguistaData", JSON.stringify(FOLGUISTA_DATA));
+  }catch(e){
+    salvouOk = false;
+  }
+
+  // atualiza tambem os mapas permanentes de nome/grupo, pra ficarem coerentes com o novo padrao
+  Object.values(FIXO_DATA).forEach(f=>{
+    if(f.chapa) NOME_POR_CHAPA_ORIGINAL[f.chapa] = f.nome;
+    if(f.nome && f.grupo) GRUPO_ORIGINAL_POR_NOME[f.nome.toUpperCase()] = f.grupo;
+  });
+  Object.values(FOLGUISTA_DATA).forEach(f=>{
+    if(f.chapa) NOME_POR_CHAPA_ORIGINAL[f.chapa] = f.nome;
+  });
+
+  if(btn){
+    btn.textContent = salvouOk ? "✅ Padrão atualizado!" : "⚠️ Falha ao salvar!";
+    btn.classList.remove("confirm-pending");
+    setTimeout(()=>{
+      btn.textContent = "⭐ Salvar dados";
+    }, 2000);
+  }
+}
+
+const BANCO_DADOS_PADRAO = [
+  {nome:"RICARDO DE JESUS AMORIM", tipo:"Fundidor", grupo:"F", chapa:"", banca:""},
+  {nome:"ROBSON DE JESUS NASCIMENTO", tipo:"Fundidor", grupo:"F", chapa:"", banca:""},
+  {nome:"DIEGO SOUZA NOGUEIRA", tipo:"Fundidor", grupo:"F", chapa:"", banca:""},
+  {nome:"RONILSON DE JESUS DA SILVA", tipo:"Fundidor", grupo:"F", chapa:"", banca:""},
+  {nome:"GILSIMAR PEREIRA DUARTE", tipo:"Fundidor", grupo:"F", chapa:"", banca:""},
+  {nome:"ALEXANDRE DE OLIVEIRA BRITO", tipo:"Fundidor", grupo:"F", chapa:"576", banca:"G03"},
+  {nome:"CARLOS ANDRE SANTANA DOS SANTOS", tipo:"Fundidor", grupo:"F", chapa:"565", banca:"G02, G11, G12"},
+  {nome:"LEANDRO DE FREITAS SIMOES", tipo:"Ajudante", grupo:"F", chapa:"", banca:""},
+  {nome:"RODRIGO CARMO BARROS", tipo:"Ajudante", grupo:"F", chapa:"", banca:""},
+  {nome:"CARLOS HENRIQUE DE SOUZA SOBRINHO", tipo:"Ajudante", grupo:"F", chapa:"", banca:""},
+  {nome:"DIEGO DOS SANTOS GUIMARAES", tipo:"Fundidor", grupo:"H", chapa:"", banca:""},
+  {nome:"TIAGO DOS SANTOS GUIMARAES", tipo:"Fundidor", grupo:"H", chapa:"599", banca:"G05"},
+  {nome:"ADAILSON COITINHO RODRIGUES", tipo:"Fundidor", grupo:"H", chapa:"575", banca:"G04"},
+  {nome:"RYALISSON RODRIGUES SIMOES", tipo:"Fundidor", grupo:"H", chapa:"", banca:""},
+  {nome:"MARCOS VINICIUS DE SOUZA ARCHANJO", tipo:"Fundidor", grupo:"H", chapa:"", banca:""},
+  {nome:"MARCOS AURELIO DE SOUSA PAES", tipo:"Fundidor", grupo:"H", chapa:"", banca:""},
+  {nome:"RENATO SANTOS FERREIRA", tipo:"Ajudante", grupo:"H", chapa:"", banca:""},
+  {nome:"NALBERTH JUNIOR RAULINO SANTANA", tipo:"Ajudante", grupo:"H", chapa:"", banca:""},
+  {nome:"CARLOS EDUARDO SAMPAIO", tipo:"Ajudante", grupo:"H", chapa:"", banca:""},
+  {nome:"JEAN GUILHERME MENDES BATISTA", tipo:"Fundidor", grupo:"B", chapa:"", banca:""},
+  {nome:"JOSE MATIM ALIPRANDI SANT ANNA", tipo:"Fundidor", grupo:"B", chapa:"588", banca:"G08"},
+  {nome:"LEONES DE FREITAS SIMOES", tipo:"Fundidor", grupo:"B", chapa:"", banca:""},
+  {nome:"CARLOS RODRIGO ALVES GUIMARAES", tipo:"Fundidor", grupo:"B", chapa:"", banca:""},
+  {nome:"FELIPE SANTOS MOREIRA", tipo:"Fundidor", grupo:"B", chapa:"", banca:""},
+  {nome:"EDUARDO DOS SANTOS MARTINS", tipo:"Fundidor", grupo:"B", chapa:"", banca:""},
+  {nome:"GUSTAVO BARRETO DE CARVALHO", tipo:"Fundidor", grupo:"B", chapa:"", banca:""},
+  {nome:"UELLISON COSTA DE JESUS", tipo:"Ajudante", grupo:"B", chapa:"", banca:""},
+  {nome:"LUCAS COSTA SANTOS", tipo:"Ajudante", grupo:"B", chapa:"", banca:""},
+  {nome:"LUIZ RICARDO PEREIRA DE JESUS", tipo:"Ajudante", grupo:"B", chapa:"", banca:""},
+  {nome:"ALEXSANDRO PEREIRA CERQUEIRA", tipo:"Ajudante", grupo:"B", chapa:"", banca:""},
+  {nome:"ISMAEL MIRANDA DOS SANTOS", tipo:"Fundidor", grupo:"D", chapa:"", banca:""},
+  {nome:"MATEUS DE SOUZA DE ALMEIDA", tipo:"Fundidor", grupo:"D", chapa:"572", banca:"G07"},
+  {nome:"JOSE CARVALHO DOS SANTOS", tipo:"Fundidor", grupo:"D", chapa:"", banca:""},
+  {nome:"EDSON FRANCISCO DA SILVA", tipo:"Fundidor", grupo:"D", chapa:"", banca:""},
+  {nome:"ANTONIO MARCOS CANTAO FERREIRA", tipo:"Fundidor", grupo:"D", chapa:"", banca:""},
+  {nome:"GUSTAVO TONNI ARMONDES AMORIN", tipo:"Fundidor", grupo:"D", chapa:"", banca:""},
+  {nome:"JOSE CARLOS SANTANA", tipo:"Fundidor", grupo:"D", chapa:"", banca:""},
+  {nome:"LUCAS FERREIRA SANTOS", tipo:"Fundidor", grupo:"D", chapa:"", banca:""},
+  {nome:"EMAWXUELL DA SILVA CHAVES", tipo:"Ajudante", grupo:"D", chapa:"", banca:""},
+  {nome:"ERICK AUGUSTO BOREL DO AMARAL", tipo:"Ajudante", grupo:"D", chapa:"", banca:""}
+];
+
+let BANCO_DADOS_LISTA = [];
+try{
+  const salvo = JSON.parse(localStorage.getItem("bancoDadosLista"));
+  BANCO_DADOS_LISTA = salvo && salvo.length ? salvo : JSON.parse(JSON.stringify(BANCO_DADOS_PADRAO));
+}catch(e){
+  BANCO_DADOS_LISTA = JSON.parse(JSON.stringify(BANCO_DADOS_PADRAO));
+}
+
+function salvarBancoDados(){
+  try{ localStorage.setItem("bancoDadosLista", JSON.stringify(BANCO_DADOS_LISTA)); }catch(e){}
+}
+
+// Corrige o nome em Dados Originais (via chapa) e atualiza o campo "banca" do
+// registro no Banco de Dados — dispara sozinho ao adicionar/editar uma chapa.
+function sincronizarChapaComDadosOriginais(idx){
+  const p = BANCO_DADOS_LISTA[idx];
+  if(!p || !p.chapa) return;
+
+  let mudouOriginais = false;
+  Object.keys(FIXO_DATA).forEach(b=>{
+    if(FIXO_DATA[b].chapa === p.chapa && FIXO_DATA[b].nome !== p.nome){
+      FIXO_DATA[b].nome = p.nome;
+      mudouOriginais = true;
+    }
+  });
+  Object.keys(FOLGUISTA_DATA).forEach(b=>{
+    if(FOLGUISTA_DATA[b].chapa === p.chapa && FOLGUISTA_DATA[b].nome !== p.nome){
+      FOLGUISTA_DATA[b].nome = p.nome;
+      mudouOriginais = true;
+    }
+  });
+  if(mudouOriginais){
+    try{
+      localStorage.setItem("fixoData", JSON.stringify(FIXO_DATA));
+      localStorage.setItem("folguistaData", JSON.stringify(FOLGUISTA_DATA));
+    }catch(e){}
+    NOME_POR_CHAPA = construirNomePorChapa();
+    ESCALAS = gerarEscalas();
+    LISTA_FUNDIDORES = gerarListaFundidores();
+    SEM_BANCA_TRABALHANDO = calcularSemBancaTrabalhando();
+  }
+
+  // atualiza a banca do registro a partir de onde essa chapa aparece em Dados Originais
+  const ocorrencias = [];
+  Object.keys(FIXO_DATA).forEach(b=>{ if(FIXO_DATA[b].chapa === p.chapa) ocorrencias.push(b); });
+  Object.keys(FOLGUISTA_DATA).forEach(b=>{ if(FOLGUISTA_DATA[b].chapa === p.chapa) ocorrencias.push(b); });
+  p.banca = ocorrencias.join(", ");
+  salvarBancoDados();
+}
+
+// Lê uma planilha Excel (.xlsx/.xls) e importa nome/chapa/tipo/grupo pro Banco de
+// Dados. Reconhece os cabeçalhos com variação de acento/maiúsculas. Se a chapa (ou,
+// na falta dela, o nome) já existir, atualiza o registro em vez de duplicar.
+
+// Guarda o resultado da última planilha analisada, esperando confirmação do usuário
+let IMPORTACAO_EXCEL_PENDENTE = null;
+
+// Verifica se um texto de cabeçalho bate com alguma das opções dadas
+// (ignora acento/maiúscula/ponto/espaço, aceita começo de palavra)
+function bateColunaExcel(texto, opcoes){
+  const t = normalizaNome(String(texto)).replace(/[.\s]+/g,"");
+  if(!t) return false;
+  return opcoes.some(opc=>{
+    const alvo = normalizaNome(opc).replace(/[.\s]+/g,"");
+    if(t === alvo) return true;
+    if(t.length >= 3 && t.startsWith(alvo)) return true;
+    // só aceita "cabeçalho é abreviação do termo buscado" se o cabeçalho tiver
+    // um tamanho mínimo (evita "F", "X", "0" baterem com "fundidor", etc.)
+    if(t.length >= 3 && alvo.startsWith(t)) return true;
+    return false;
+  });
+}
+
+function analisarPlanilhaExcel(event){
+  const file = event.target.files[0];
+  IMPORTACAO_EXCEL_PENDENTE = null;
+  if(!file) return;
+  const fb = document.getElementById("copy-feedback-importarexcel");
+
+  if(typeof XLSX === "undefined"){
+    if(fb) fb.textContent = "⚠️ Não consegui carregar o leitor de planilhas (sem internet no momento?). Tente de novo.";
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = function(e){
+    try{
+      const dados = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(dados, {type:"array"});
+
+      // se tiver uma aba chamada "Tarde" (ignorando acento/maiúscula), usa ela
+      // primeiro — é a que interessa pro turno da tarde (chapas 550–599)
+      const abaTarde = workbook.SheetNames.find(n => normalizaNome(n) === "TARDE");
+      const ordemAbas = abaTarde ? [abaTarde, ...workbook.SheetNames.filter(n=>n!==abaTarde)] : workbook.SheetNames;
+
+      // procura a linha de cabeçalho usando MAT/CHAPA ou TELEFONE como âncora —
+      // mais confiável que "Nome", que em algumas planilhas fica sem rótulo
+      let abaEscolhida = null, linhaCabecalhoIdx = -1, linhasArray = null;
+      for(const nomeAba of ordemAbas){
+        const arr = XLSX.utils.sheet_to_json(workbook.Sheets[nomeAba], {header:1, defval:""});
+        for(let i=0; i<Math.min(40, arr.length); i++){
+          const linha = arr[i];
+          const temAncora = linha.some(c=>bateColunaExcel(c, ["nome","fundidor","funcionario","colaborador"])) ||
+                             linha.some(c=>bateColunaExcel(c, ["mat","matricula","chapa","chapas"])) ||
+                             linha.some(c=>bateColunaExcel(c, ["telefone","celular","fone","contato"]));
+          if(temAncora){
+            abaEscolhida = nomeAba;
+            linhaCabecalhoIdx = i;
+            linhasArray = arr;
+            break;
+          }
+        }
+        if(abaEscolhida) break;
+      }
+
+      if(!abaEscolhida){
+        abaEscolhida = abaTarde || workbook.SheetNames[0];
+        linhaCabecalhoIdx = 0;
+        linhasArray = XLSX.utils.sheet_to_json(workbook.Sheets[abaEscolhida], {header:1, defval:""});
+      }
+
+      const headerRow = linhasArray[linhaCabecalhoIdx];
+      const linhasDados = linhasArray.slice(linhaCabecalhoIdx+1).filter(l => l.some(c => String(c).trim()!==""));
+
+      if(linhasDados.length === 0){
+        IMPORTACAO_EXCEL_PENDENTE = {erro: "A planilha está vazia ou não consegui ler nenhuma linha de dados.", abas: workbook.SheetNames};
+        renderAll(); showSection(activeTab);
+        return;
+      }
+
+      const idxMatricula = headerRow.findIndex(c=>bateColunaExcel(c, ["matricula","mat","mat.","chapa","chapas"]));
+      const idxTelefone = headerRow.findIndex(c=>bateColunaExcel(c, ["telefone","celular","fone","contato"]));
+      const idxTipo = headerRow.findIndex(c=>{
+        const t = normalizaNome(String(c));
+        return t === "X" || bateColunaExcel(c, ["tipo","funcao","cargo"]);
+      });
+      const idxGrupo = headerRow.findIndex(c=>bateColunaExcel(c, ["grupo","escala","letra"]));
+      let idxNome = headerRow.findIndex(c=>bateColunaExcel(c, ["nome","fundidor","funcionario","colaborador"]));
+
+      // se não achou uma coluna com texto "Nome" no cabeçalho, usa a coluna (fora
+      // das já identificadas) com o maior tamanho médio de texto nas linhas de dados
+      // — é sempre a coluna do nome, mesmo sem rótulo (comum em planilhas com células
+      // de cabeçalho mescladas/em branco pra essa coluna)
+      if(idxNome === -1){
+        const excluir = new Set([idxMatricula, idxTelefone, idxTipo, idxGrupo].filter(i=>i>=0));
+        if(idxGrupo === -1) excluir.add(0); // coluna 0 costuma ser a letra do grupo, mesmo sem cabeçalho
+        let melhorIdx = -1, melhorMedia = 0;
+        for(let c=0; c<headerRow.length; c++){
+          if(excluir.has(c)) continue;
+          let soma=0, qtd=0;
+          linhasDados.forEach(l=>{
+            const v = String(l[c]||"").trim();
+            if(v){ soma += v.length; qtd++; }
+          });
+          const media = qtd>0 ? soma/qtd : 0;
+          if(media > melhorMedia){ melhorMedia = media; melhorIdx = c; }
+        }
+        idxNome = melhorIdx;
+      }
+
+      if(idxNome === -1){
+        IMPORTACAO_EXCEL_PENDENTE = {erro: "Não consegui identificar a coluna do nome, mesmo tentando adivinhar pelo texto mais longo. Confira a planilha.", abas: workbook.SheetNames, headerRow};
+        renderAll(); showSection(activeTab);
+        return;
+      }
+
+      // grupo: se a coluna for por célula mesclada (comum: só a primeira linha do
+      // bloco tem a letra), preenche as linhas vazias com a última letra válida vista
+      const colGrupoUsada = idxGrupo >= 0 ? idxGrupo : 0;
+      let ultimoGrupo = "F";
+
+      // Rejeita linhas de resumo/totais que não são pessoas de verdade — ex: "Aj",
+      // "F", "TT", "Somas", "Tarde", números soltos, siglas curtas etc.
+      const PALAVRAS_DESCARTAR = new Set(["AJ","F","H","B","D","TT","M","T","AP","SOMAS","SOMA","TARDE","MANHA","TOTAL","TOTAIS","PESSOASNOTURNO"]);
+      function pareceNomeValido(nome){
+        if(!nome) return false;
+        const limpo = nome.trim();
+        if(limpo.length < 5) return false;
+        if(/^\d+$/.test(limpo)) return false; // só números
+        const semEspaco = normalizaNome(limpo).replace(/\s+/g,"");
+        if(PALAVRAS_DESCARTAR.has(semEspaco)) return false;
+        if(!/[A-Za-zÀ-ÿ]{2,}/.test(limpo)) return false; // precisa ter pelo menos um pedaço de letras
+        return true;
+      }
+
+      // corta a lista assim que encontrar a marcação de fim de lista da planilha
+      // ("Pessoas no turno >>") — tudo depois disso é resumo/gente extra, não a escala oficial
+      let indiceCorte = linhasDados.findIndex(l =>
+        l.some(c => normalizaNome(String(c)).replace(/\s+/g,"").includes("PESSOASNOTURNO"))
+      );
+      const linhasDadosCortadas = indiceCorte >= 0 ? linhasDados.slice(0, indiceCorte) : linhasDados;
+
+      const linhas = linhasDadosCortadas.map(l=>{
+        const gCell = String(l[colGrupoUsada]||"").trim().toUpperCase();
+        if(["F","H","B","D"].includes(gCell)) ultimoGrupo = gCell;
+        return {
+          nome: String(l[idxNome]||"").trim(),
+          matricula: idxMatricula>=0 ? String(l[idxMatricula]||"").trim() : "",
+          chapa: "", // a chapa não vem na planilha — precisa ser digitada manualmente
+          telefone: idxTelefone>=0 ? String(l[idxTelefone]||"").trim() : "",
+          tipoBruto: idxTipo>=0 ? String(l[idxTipo]||"").trim() : "",
+          grupo: ultimoGrupo
+        };
+      }).filter(l=>pareceNomeValido(l.nome));
+
+      IMPORTACAO_EXCEL_PENDENTE = {
+        nomeArquivo: file.name, abaEscolhida, linhaCabecalhoIdx, linhas,
+        headerRow, idxNome, idxMatricula, idxTipo, idxGrupo,
+        abas: workbook.SheetNames
+      };
+      renderAll();
+      showSection(activeTab);
+    }catch(err){
+      IMPORTACAO_EXCEL_PENDENTE = {erro: "Erro ao ler a planilha: " + (err && err.message ? err.message : err)};
+      renderAll();
+      showSection(activeTab);
+    }
+  };
+  reader.onerror = function(){
+    IMPORTACAO_EXCEL_PENDENTE = {erro: "Não consegui ler o arquivo."};
+    renderAll();
+    showSection(activeTab);
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function adicionarLinhaImportacaoExcel(){
+  const p = IMPORTACAO_EXCEL_PENDENTE;
+  if(!p || !p.linhas) return;
+
+  const nomeInput = document.getElementById("imp-add-nome");
+  const chapaInput = document.getElementById("imp-add-chapa");
+  const telefoneInput = document.getElementById("imp-add-telefone");
+  const tipoInput = document.getElementById("imp-add-tipo");
+  const grupoInput = document.getElementById("imp-add-grupo");
+
+  const nome = nomeInput.value.trim().toUpperCase();
+  if(!nome){
+    alert("Preencha o nome pra adicionar.");
+    return;
+  }
+
+  p.linhas.push({
+    nome,
+    matricula: "",
+    chapa: chapaInput.value.trim(),
+    telefone: telefoneInput.value.trim(),
+    tipoBruto: tipoInput.value,
+    grupo: grupoInput.value
+  });
+
+  renderAll();
+  showSection(activeTab);
+}
+
+function editarGrupoImportacaoExcel(idx, novoValor){
+  const p = IMPORTACAO_EXCEL_PENDENTE;
+  if(!p || !p.linhas || !p.linhas[idx]) return;
+  p.linhas[idx].grupo = novoValor;
+}
+
+function editarTipoImportacaoExcel(idx, novoValor){
+  const p = IMPORTACAO_EXCEL_PENDENTE;
+  if(!p || !p.linhas || !p.linhas[idx]) return;
+  p.linhas[idx].tipoBruto = novoValor;
+  renderAll();
+  showSection(activeTab);
+}
+
+function editarChapaImportacaoExcel(idx, novoValor){
+  const p = IMPORTACAO_EXCEL_PENDENTE;
+  if(!p || !p.linhas || !p.linhas[idx]) return;
+  p.linhas[idx].chapa = novoValor.trim();
+  renderAll();
+  showSection(activeTab);
+}
+
+function removerLinhaImportacaoExcel(idx){
+  const p = IMPORTACAO_EXCEL_PENDENTE;
+  if(!p || !p.linhas) return;
+  p.linhas.splice(idx, 1);
+  renderAll();
+  showSection(activeTab);
+}
+
+function cortarDaquiImportacaoExcel(idx){
+  const p = IMPORTACAO_EXCEL_PENDENTE;
+  if(!p || !p.linhas) return;
+  p.linhas = p.linhas.slice(0, idx);
+  renderAll();
+  showSection(activeTab);
+}
+
+function cancelarImportacaoExcel(){
+  IMPORTACAO_EXCEL_PENDENTE = null;
+  const inputEl = document.getElementById("input-importar-bd-excel");
+  if(inputEl) inputEl.value = "";
+  renderAll();
+  showSection(activeTab);
+}
+
+function confirmarImportacaoExcel(){
+  const p = IMPORTACAO_EXCEL_PENDENTE;
+  if(!p || p.erro || p.idxNome === -1 || !p.linhas || p.linhas.length === 0) return;
+
+  if(!confirm(`Isso vai APAGAR todo o Banco de Dados atual (${BANCO_DADOS_LISTA.length} registro(s)) e substituir pelo conteúdo dessa planilha (${p.linhas.length} linha(s)). Continuar?`)){
+    return;
+  }
+
+  BANCO_DADOS_LISTA = [];
+  let adicionados = 0, atualizados = 0, ignorados = 0;
+
+  p.linhas.forEach(linha=>{
+    const nome = linha.nome.toUpperCase();
+    if(!nome){ ignorados++; return; }
+    const chapa = (linha.chapa || "").split(/[,;\/]+/)[0].trim();
+    const matricula = (linha.matricula || "").trim();
+    const telefone = (linha.telefone || "").trim();
+
+    // reconhece tanto texto completo ("Fundidor"/"Ajudante") quanto abreviado ("F"/"Aj")
+    const tipoNorm = normalizaNome(linha.tipoBruto || "");
+    let tipo;
+    if(tipoNorm.includes("FUNDIDOR") && tipoNorm.includes("AJUDANTE")) tipo = "Fundidor/Ajudante";
+    else if(tipoNorm === "AJ" || tipoNorm.startsWith("AJUD") || tipoNorm === "A") tipo = "Ajudante";
+    else tipo = "Fundidor";
+
+    let grupo = (linha.grupo || "F").toUpperCase();
+    if(!["F","H","B","D"].includes(grupo)) grupo = "F";
+
+    let existente = null;
+    if(chapa) existente = BANCO_DADOS_LISTA.find(x => x.chapa === chapa);
+    if(!existente && matricula) existente = BANCO_DADOS_LISTA.find(x => x.matricula === matricula);
+    if(!existente) existente = BANCO_DADOS_LISTA.find(x => normalizaNome(x.nome) === normalizaNome(nome));
+
+    let idx;
+    if(existente){
+      existente.nome = nome;
+      existente.chapa = chapa || existente.chapa;
+      existente.matricula = matricula || existente.matricula || "";
+      existente.tipo = tipo;
+      existente.grupo = grupo;
+      existente.telefone = telefone || existente.telefone || "";
+      idx = BANCO_DADOS_LISTA.indexOf(existente);
+      atualizados++;
+    } else {
+      BANCO_DADOS_LISTA.push({nome, chapa, matricula, tipo, grupo, banca:"", telefone});
+      idx = BANCO_DADOS_LISTA.length - 1;
+      adicionados++;
+    }
+    sincronizarGrupoParaDadosOriginais(BANCO_DADOS_LISTA[idx].chapa, nome, grupo);
+    sincronizarChapaComDadosOriginais(idx);
+  });
+
+  salvarBancoDados();
+  IMPORTACAO_EXCEL_PENDENTE = {sucesso: true, adicionados, atualizados, ignorados};
+  const inputEl = document.getElementById("input-importar-bd-excel");
+  if(inputEl) inputEl.value = "";
+  renderAll();
+  showSection(activeTab);
+}
+
+function importarExcelHTML(){
+  let html = `<h2>Importar Excel — Banco de Dados</h2>`;
+  html += `<p style="color:var(--muted);font-size:.72rem;margin:0 0 10px;">Suba uma planilha (.xlsx/.xls). O app procura os cabeçalhos Nome, Chapa/Mat., Tipo e Grupo automaticamente — e se a coluna do nome não tiver rótulo, ele identifica pelo texto mais longo da planilha. Antes de aplicar, você vê uma prévia do que foi lido. <b>Atenção:</b> confirmar a importação apaga todo o Banco de Dados atual e substitui pelo da planilha.</p>`;
+
+  html += `<input type="file" id="input-importar-bd-excel" accept=".xlsx,.xls,.xlsm,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel.sheet.macroEnabled.12" onchange="analisarPlanilhaExcel(event)" style="margin-bottom:10px;">
+  <span id="copy-feedback-importarexcel" class="copy-feedback"></span>`;
+
+  const p = IMPORTACAO_EXCEL_PENDENTE;
+
+  if(p && p.sucesso){
+    html += `<p class="warn" style="color:#6fdc8c;">✅ Importado: ${p.adicionados} adicionado(s), ${p.atualizados} atualizado(s)${p.ignorados>0 ? `, ${p.ignorados} linha(s) ignorada(s) sem nome` : ""}. Confira na aba Banco de Dados.</p>`;
+    html += `<button id="btn-importexcel-salvar-padrao" class="undo-btn" onclick="salvarBancoDadosComoOriginal('btn-importexcel-salvar-padrao')">⭐ Salvar dados</button>
+    <p style="color:var(--muted);font-size:.68rem;margin:4px 0 0;">Guarda esses dados importados como o "padrão de fábrica" do app — toque duas vezes pra confirmar.</p>`;
+  } else if(p && p.erro){
+    html += `<p class="warn">⚠️ ${p.erro}</p>`;
+    if(p.abas) html += `<p style="color:var(--muted);font-size:.7rem;">Abas encontradas no arquivo: ${p.abas.join(", ")}</p>`;
+    if(p.headerRow) html += `<p style="color:var(--muted);font-size:.7rem;">Cabeçalho encontrado: ${p.headerRow.map(c=>`<span class="tag-extra">${c||"(vazio)"}</span>`).join(" ")}</p>`;
+  } else if(p){
+    html += `<h3 style="margin-top:14px;">Prévia</h3>`;
+    html += `<p style="font-size:.72rem;color:var(--muted);">Arquivo: <b>${p.nomeArquivo}</b> — aba "<b>${p.abaEscolhida}</b>", cabeçalho detectado na linha ${p.linhaCabecalhoIdx+1}, ${p.linhas.length} linha(s) de dados reconhecidas.</p>`;
+
+    const colunasUteis = Math.max(p.idxNome, p.idxMatricula, p.idxTelefone, p.idxTipo, p.idxGrupo) + 1;
+    const headerParaMostrar = p.headerRow.slice(0, Math.max(colunasUteis, 6));
+    const escondidas = p.headerRow.length - headerParaMostrar.length;
+    html += `<p style="font-size:.72rem;">Cabeçalho lido na planilha: ${headerParaMostrar.map(c=>`<span class="tag-extra">${c||"(vazio)"}</span>`).join(" ")}${escondidas>0 ? ` <span style="color:var(--muted);">(+ ${escondidas} coluna(s) ignorada(s), tipo datas de calendário)</span>` : ""}</p>`;
+
+    const nomeColLabel = p.headerRow[p.idxNome] ? `coluna "${p.headerRow[p.idxNome]}"` : `coluna ${p.idxNome+1} (sem rótulo — identificada pelo texto mais longo)`;
+    html += `<table style="font-size:.7rem;margin:8px 0;"><tbody>
+      <tr><td>Nome →</td><td><b>${nomeColLabel}</b></td></tr>
+      <tr><td>Matrícula →</td><td><b>${p.idxMatricula>=0 ? `coluna "${p.headerRow[p.idxMatricula]}"` : "— (opcional, não encontrada)"}</b></td></tr>
+      <tr><td>Telefone →</td><td><b>${p.idxTelefone>=0 ? `coluna "${p.headerRow[p.idxTelefone]}"` : "— (opcional, não encontrada)"}</b></td></tr>
+      <tr><td>Tipo →</td><td><b>${p.idxTipo>=0 ? `coluna "${p.headerRow[p.idxTipo]||"(vazio)"}"` : "— (opcional, vai usar 'Fundidor')"}</b></td></tr>
+      <tr><td>Grupo →</td><td><b>${p.idxGrupo>=0 ? `coluna "${p.headerRow[p.idxGrupo]}"` : "coluna 1 (sem rótulo, mesclada — preenchida automaticamente)"}</b></td></tr>
+    </tbody></table>`;
+
+    html += `<button class="whatsapp-btn" style="margin-bottom:8px;" onclick="buscarChapasImportacaoExcelEmDadosOriginais()">🔍 Buscar chapas em Dados Originais</button>
+    <button class="whatsapp-btn" style="margin-bottom:8px;" onclick="corrigirNomesEmDadosOriginaisComImportacaoExcel()">📝 Corrigir nomes em Dados Originais (com esta planilha)</button>
+    <span id="copy-feedback-importarexcel-busca" class="copy-feedback"></span>`;
+
+    html += `<div class="table-wrap" style="max-height:420px;overflow-y:auto;"><table><thead><tr><th>Nome</th><th>Matrícula</th><th>Chapa</th><th>Telefone</th><th>Tipo</th><th>Grupo</th><th></th></tr></thead><tbody>`;
+    let semChapaCount = 0;
+    p.linhas.forEach((linha,idx)=>{
+      const tipoNormLinha = normalizaNome(linha.tipoBruto || "");
+      const ehAj = tipoNormLinha === "AJ" || tipoNormLinha.startsWith("AJUD") || tipoNormLinha === "A";
+      const precisaChapa = !ehAj && !linha.chapa;
+      if(precisaChapa) semChapaCount++;
+      html += `<tr${precisaChapa ? ' class="row-Semfolguista"' : ''}>
+      <td>${linha.nome}${precisaChapa ? ' <span class="warn">⚠️ sem chapa</span>' : ''}</td>
+      <td>${linha.matricula || "-"}</td>
+      <td><input type="text" value="${linha.chapa||""}" placeholder="${precisaChapa ? 'digitar' : ''}" onchange="editarChapaImportacaoExcel(${idx}, this.value)" style="width:70px;background:var(--panel2);color:var(--text);border:1px solid ${precisaChapa ? '#d95656' : 'var(--border)'};border-radius:4px;padding:3px 4px;font-size:.7rem;"></td>
+      <td>${linha.telefone || "-"}</td>
+      <td>
+        <select onchange="editarTipoImportacaoExcel(${idx}, this.value)" style="background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:3px 6px;font-size:.7rem;">
+          <option value="F" ${!ehAj?"selected":""}>F</option>
+          <option value="Aj" ${ehAj?"selected":""}>Aj</option>
+        </select>
+      </td>
+      <td>
+        <select onchange="this.style.background='var(--'+this.value+')'; editarGrupoImportacaoExcel(${idx}, this.value);" style="-webkit-appearance:none;-moz-appearance:none;appearance:none;background:var(--${linha.grupo});color:#fff;font-weight:900;border:1px solid var(--border);border-radius:4px;padding:3px 8px;font-size:.85rem;">
+          <option value="F" ${linha.grupo==="F"?"selected":""}>F</option>
+          <option value="H" ${linha.grupo==="H"?"selected":""}>H</option>
+          <option value="B" ${linha.grupo==="B"?"selected":""}>B</option>
+          <option value="D" ${linha.grupo==="D"?"selected":""}>D</option>
+        </select>
+      </td>
+      <td style="white-space:nowrap;">
+        <span class="del-btn" title="Remover só essa linha" onclick="removerLinhaImportacaoExcel(${idx})">✕</span>
+        <span class="del-btn" title="Cortar daqui pra baixo" onclick="cortarDaquiImportacaoExcel(${idx})" style="margin-left:4px;">✂️</span>
+      </td></tr>`;
+    });
+    html += `</tbody></table></div>`;
+    if(semChapaCount > 0){
+      html += `<p class="warn">⚠️ ${semChapaCount} Fundidor(es) sem chapa preenchida — a planilha não traz chapa (só matrícula). Toque em "Buscar chapas em Dados Originais" acima pra preencher automático quem já existir lá, ou digite direto no campo "Chapa" de cada linha (Ajudantes não precisam).</p>`;
+    }
+
+    html += `<h3 style="margin-top:14px;">Adicionar pessoa que não veio na planilha</h3>`;
+    html += `<div class="add-ajudante">
+      <input type="text" id="imp-add-nome" placeholder="Nome..." style="min-width:160px;background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:.72rem;">
+      <input type="text" id="imp-add-chapa" placeholder="Matrícula..." style="max-width:90px;background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:.72rem;">
+      <input type="text" id="imp-add-telefone" placeholder="Telefone..." style="max-width:130px;background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:.72rem;">
+      <select id="imp-add-tipo">
+        <option value="F">F</option>
+        <option value="Aj">Aj</option>
+      </select>
+      <select id="imp-add-grupo">
+        <option value="F">F</option>
+        <option value="H">H</option>
+        <option value="B">B</option>
+        <option value="D">D</option>
+      </select>
+      <button class="add-btn" onclick="adicionarLinhaImportacaoExcel()">+ Adicionar</button>
+    </div>`;
+
+    html += `<button class="whatsapp-btn" onclick="confirmarImportacaoExcel()">✅ Confirmar e substituir Banco de Dados</button>
+    <button class="reset-btn" onclick="cancelarImportacaoExcel()">Cancelar</button>`;
+  }
+
+  return html;
+}
+
+function adicionarBancoDados(){
+  const nomeInput = document.getElementById("bd-novo-nome");
+  const chapaInput = document.getElementById("bd-novo-chapa");
+  const tipoInput = document.getElementById("bd-novo-tipo");
+  const grupoInput = document.getElementById("bd-novo-grupo");
+  const nome = nomeInput.value.trim().toUpperCase();
+  if(!nome) return;
+  const chapa = chapaInput.value.trim();
+  const grupo = grupoInput.value;
+  BANCO_DADOS_LISTA.push({nome, chapa, tipo: tipoInput.value, grupo, banca:"", telefone:""});
+  salvarBancoDados();
+  sincronizarGrupoParaDadosOriginais(chapa, nome, grupo);
+  sincronizarChapaComDadosOriginais(BANCO_DADOS_LISTA.length - 1);
+  nomeInput.value = "";
+  chapaInput.value = "";
+  renderAll();
+  showSection(activeTab);
+}
+
+function removerBancoDados(idx){
+  BANCO_DADOS_LISTA.splice(idx,1);
+  salvarBancoDados();
+  renderAll();
+  showSection(activeTab);
+}
+
+function sincronizarTodasCoresBancoDados(){
+  const fb = document.getElementById("copy-feedback-bancodados");
+  try{
+    let processados = 0;
+    BANCO_DADOS_LISTA.forEach((p, idx)=>{
+      if(!p.chapa && !p.nome) return;
+      sincronizarGrupoParaDadosOriginais(p.chapa, p.nome, p.grupo);
+      sincronizarChapaComDadosOriginais(idx);
+      processados++;
+    });
+    renderAll();
+    showSection(activeTab);
+    const fbNovo = document.getElementById("copy-feedback-bancodados");
+    if(fbNovo){
+      fbNovo.textContent = `✅ Cores, nomes e bancas conferidos e corrigidos em Dados Originais (${processados} pessoa(s) verificada(s)).`;
+    }
+  }catch(err){
+    if(fb) fb.textContent = "⚠️ Erro ao corrigir: " + (err && err.message ? err.message : err);
+    else alert("Erro ao corrigir cores/nomes/bancas: " + (err && err.message ? err.message : err));
+    console.error(err);
+  }
+}
+
+function mudarGrupoBancoDados(idx, novoGrupo){
+  if(BANCO_DADOS_LISTA[idx]){
+    BANCO_DADOS_LISTA[idx].grupo = novoGrupo;
+    salvarBancoDados();
+    sincronizarGrupoParaDadosOriginais(BANCO_DADOS_LISTA[idx].chapa, BANCO_DADOS_LISTA[idx].nome, novoGrupo);
+  }
+  renderAll();
+  showSection(activeTab);
+}
+
+function mudarTipoBancoDados(idx, novoTipo){
+  if(BANCO_DADOS_LISTA[idx]){
+    BANCO_DADOS_LISTA[idx].tipo = novoTipo;
+    salvarBancoDados();
+  }
+  renderAll();
+  showSection(activeTab);
+}
+
+// Propaga a troca de grupo/cor feita no Banco de Dados para Dados Originais
+// (e, por consequência, pras escalas F/H/B/D) — sem precisar de botão.
+// Cobre tanto Fixo quanto Folguista.
+function sincronizarGrupoParaDadosOriginais(chapa, nome, novoGrupo){
+  const nomeUp = (nome || "").toUpperCase();
+  const nomeNorm = nome ? normalizaNome(nome) : "";
+
+  // mapas permanentes (chapa é a referência mais confiável, nome fica como respaldo)
+  if(chapa){
+    GRUPO_ORIGINAL_POR_CHAPA[chapa] = novoGrupo;
+    try{ localStorage.setItem("grupoOriginalPorChapa", JSON.stringify(GRUPO_ORIGINAL_POR_CHAPA)); }catch(e){}
+  }
+  if(nomeUp){
+    GRUPO_ORIGINAL_POR_NOME[nomeUp] = novoGrupo;
+    try{ localStorage.setItem("grupoOriginalPorNome", JSON.stringify(GRUPO_ORIGINAL_POR_NOME)); }catch(e){}
+    // se essa pessoa também aparece como folguista em alguma banca, ajusta o grupo próprio dela também
+    FOLGUISTA_GRUPO_PROPRIO[nomeUp] = novoGrupo;
+    try{ localStorage.setItem("folguistaGrupoProprio", JSON.stringify(FOLGUISTA_GRUPO_PROPRIO)); }catch(e){}
+  }
+
+  let mudou = false;
+
+  // se a pessoa é titular (Fixo) de alguma banca em Dados Originais, corrige o grupo/cor dela direto
+  Object.keys(FIXO_DATA).forEach(banca=>{
+    const f = FIXO_DATA[banca];
+    const bate = (chapa && f.chapa === chapa) || (nomeNorm && f.nome && normalizaNome(f.nome) === nomeNorm);
+    if(bate){
+      // alinha a chapa também, se estiver diferente (mesmo cuidado do Banco de Dados)
+      if(chapa && f.chapa !== chapa) f.chapa = chapa;
+      if(f.grupo !== novoGrupo){ f.grupo = novoGrupo; }
+      mudou = true;
+    }
+  });
+
+  // se a pessoa é Folguista de alguma banca, alinha a chapa dela também
+  // (a cor do Folguista é calculada na hora a partir do nome/chapa, então
+  // corrigir a chapa aqui já garante que a cor bata com o grupo novo)
+  Object.keys(FOLGUISTA_DATA).forEach(banca=>{
+    const fo = FOLGUISTA_DATA[banca];
+    const bate = (chapa && fo.chapa === chapa) || (nomeNorm && fo.nome && normalizaNome(fo.nome) === nomeNorm);
+    if(bate){
+      if(chapa && fo.chapa !== chapa) fo.chapa = chapa;
+      mudou = true;
+    }
+  });
+
+  if(mudou){
+    try{
+      localStorage.setItem("fixoData", JSON.stringify(FIXO_DATA));
+      localStorage.setItem("folguistaData", JSON.stringify(FOLGUISTA_DATA));
+    }catch(e){}
+    ESCALAS = gerarEscalas();
+    NOME_POR_CHAPA = construirNomePorChapa();
+    LISTA_FUNDIDORES = gerarListaFundidores();
+    SEM_BANCA_TRABALHANDO = calcularSemBancaTrabalhando();
+    CAPACIDADE_BANCA = {};
+    ["F","H","B","D"].forEach(g=>{
+      ESCALAS[g].forEach(r=>{ CAPACIDADE_BANCA[r[0]] = (r[0]==="G25") ? 70 : 68; });
+    });
+  }
+}
+
+function normalizaNome(s){
+  return s.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim().replace(/\s+/g," ");
+}
+
+function sincronizarBancasBancoDados(){
+  let atualizados = 0;
+  const semBanca = [];
+  BANCO_DADOS_LISTA.forEach(p=>{
+    if(!p.chapa){ return; }
+    const ocorrencias = [];
+    Object.keys(FIXO_DATA).forEach(b=>{
+      if(FIXO_DATA[b].chapa === p.chapa) ocorrencias.push(b);
+    });
+    Object.keys(FOLGUISTA_DATA).forEach(b=>{
+      if(FOLGUISTA_DATA[b].chapa === p.chapa) ocorrencias.push(b);
+    });
+    const novaBanca = ocorrencias.join(", ");
+    if(ocorrencias.length > 0){
+      if(p.banca !== novaBanca) atualizados++;
+      p.banca = novaBanca;
+    } else {
+      semBanca.push(`${p.nome} (chapa ${p.chapa})`);
+    }
+  });
+  if(atualizados > 0) salvarBancoDados();
+  return {atualizados, semBanca};
+}
+
+function corrigirChapaBancaTrocada(){
+  let corrigidos = 0;
+  BANCO_DADOS_LISTA.forEach(p=>{
+    const chapaPareceBanca = /^G\d+/i.test((p.chapa||"").trim());
+    const bancaPareceChapa = /^\d+$/.test((p.banca||"").trim());
+    if(chapaPareceBanca && (bancaPareceChapa || !p.banca)){
+      const temp = p.chapa;
+      p.chapa = p.banca;
+      p.banca = temp;
+      corrigidos++;
+    } else if(bancaPareceChapa && !p.chapa){
+      // banca tem numero de chapa e o campo chapa esta vazio: so troca
+      p.chapa = p.banca;
+      p.banca = "";
+      corrigidos++;
+    }
+  });
+  salvarBancoDados();
+  renderAll();
+  showSection(activeTab);
+  const fb = document.getElementById("copy-feedback-bancodados");
+  if(fb){
+    fb.textContent = corrigidos > 0
+      ? `✅ ${corrigidos} registro(s) corrigido(s) — chapa e banca estavam trocados.`
+      : `Nenhum campo trocado foi encontrado.`;
+  }
+}
+
+function conferirChapasBancoDados(){
+  const conflitos = [];
+  const semCadastro = [];
+  const fundidoresSemChapa = [];
+  let ok = 0, ajudantesSemChapa = 0;
+
+  BANCO_DADOS_LISTA.forEach(p=>{
+    if(!p.chapa){
+      if(p.tipo === "Ajudante"){
+        ajudantesSemChapa++;
+      } else {
+        fundidoresSemChapa.push(p.nome);
+      }
+      return;
+    }
+    const nomeOriginal = NOME_POR_CHAPA[p.chapa] || NOME_POR_CHAPA_ORIGINAL[p.chapa];
+    if(!nomeOriginal){
+      semCadastro.push(`${p.nome} (chapa ${p.chapa})`);
+    } else if(normalizaNome(nomeOriginal) !== normalizaNome(p.nome)){
+      conflitos.push(`${p.nome} tem chapa ${p.chapa}, mas em Dados Originais essa chapa é de "${nomeOriginal}"`);
+    } else {
+      ok++;
+    }
+  });
+
+  let relatorio = `<div style="background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin:10px 0;">
+    <h3 style="margin:0 0 6px;font-size:.82rem;">Conferência: Banco de Dados × Dados Originais</h3>
+    <p style="margin:2px 0;font-size:.75rem;color:#6fdc8c;">✅ ${ok} chapa(s) conferem certinho</p>`;
+  if(ajudantesSemChapa>0) relatorio += `<p style="margin:2px 0;font-size:.75rem;color:var(--muted);">— ${ajudantesSemChapa} ajudante(s) sem chapa (normal, ajudantes não têm chapa cadastrada em lugar nenhum)</p>`;
+  if(fundidoresSemChapa.length>0){
+    relatorio += `<p style="margin:6px 0 2px;font-size:.75rem;color:var(--muted);">📋 ${fundidoresSemChapa.length} fundidor(es) ainda sem chapa preenchida:</p>
+      <ul style="margin:0;padding-left:16px;font-size:.7rem;color:var(--muted);">${fundidoresSemChapa.map(x=>`<li>${x}</li>`).join("")}</ul>`;
+  }
+  if(semCadastro.length>0){
+    relatorio += `<p style="margin:6px 0 2px;font-size:.75rem;color:#e8b84a;">⚠️ ${semCadastro.length} chapa(s) não existem em Dados Originais:</p>
+      <ul style="margin:0;padding-left:16px;font-size:.7rem;color:#e8b84a;">${semCadastro.map(x=>`<li>${x}</li>`).join("")}</ul>`;
+  }
+  if(conflitos.length>0){
+    relatorio += `<p style="margin:6px 0 2px;font-size:.75rem;color:#e88;">🚨 ${conflitos.length} conflito(s) — mesma chapa em pessoas diferentes:</p>
+      <ul style="margin:0;padding-left:16px;font-size:.7rem;color:#e88;">${conflitos.map(x=>`<li>${x}</li>`).join("")}</ul>`;
+  }
+  if(semCadastro.length===0 && conflitos.length===0){
+    relatorio += `<p style="margin:6px 0 0;font-size:.75rem;">🎉 Nenhuma inconsistência encontrada!</p>`;
+  }
+  relatorio += `</div>`;
+
+  const sec = document.getElementById("sec-bancodados");
+  if(sec) sec.innerHTML = bancoDadosHTML() + relatorio;
+}
+
+function restaurarBancoDados(){
+  let padrao = BANCO_DADOS_PADRAO;
+  try{
+    const salvo = JSON.parse(localStorage.getItem("bancoDadosPadrao"));
+    if(salvo && salvo.length) padrao = salvo;
+  }catch(e){}
+  BANCO_DADOS_LISTA = JSON.parse(JSON.stringify(padrao));
+  salvarBancoDados();
+  renderAll();
+  showSection(activeTab);
+}
+
+let bdSalvarPadraoPendente = false;
+let bdSalvarPadraoTimeoutId = null;
+
+function salvarBancoDadosComoOriginal(idBotao){
+  idBotao = idBotao || "btn-bd-salvar-padrao";
+  const btn = document.getElementById(idBotao);
+  if(!bdSalvarPadraoPendente){
+    bdSalvarPadraoPendente = true;
+    if(btn){
+      btn.textContent = "Toque de novo para confirmar";
+      btn.classList.add("confirm-pending");
+    }
+    bdSalvarPadraoTimeoutId = setTimeout(()=>{
+      bdSalvarPadraoPendente = false;
+      if(btn){
+        btn.textContent = "⭐ Salvar dados";
+        btn.classList.remove("confirm-pending");
+      }
+    }, 3000);
+    return;
+  }
+
+  clearTimeout(bdSalvarPadraoTimeoutId);
+  bdSalvarPadraoPendente = false;
+  try{
+    localStorage.setItem("bancoDadosPadrao", JSON.stringify(BANCO_DADOS_LISTA));
+  }catch(e){}
+
+  if(btn){
+    btn.textContent = "✅ Salvo como original!";
+    btn.classList.remove("confirm-pending");
+    setTimeout(()=>{ btn.textContent = "⭐ Salvar dados"; }, 2000);
+  }
+}
+
+let bdOrdenarColuna = "grupo";
+let bdOrdenarDirecao = "asc";
+
+function bdOrdenarPor(coluna){
+  if(bdOrdenarColuna === coluna){
+    bdOrdenarDirecao = bdOrdenarDirecao === "asc" ? "desc" : "asc";
+  } else {
+    bdOrdenarColuna = coluna;
+    bdOrdenarDirecao = "asc";
+  }
+  renderAll();
+  showSection(activeTab);
+}
+
+function bancoDadosHTML(){
+  const ordemGrupo = {F:0,H:1,B:2,D:3};
+  const dir = bdOrdenarDirecao === "asc" ? 1 : -1;
+
+  BANCO_DADOS_LISTA.sort((a,b)=>{
+    if(bdOrdenarColuna === "grupo"){
+      if(ordemGrupo[a.grupo] !== ordemGrupo[b.grupo]) return dir*(ordemGrupo[a.grupo]-ordemGrupo[b.grupo]);
+    } else if(bdOrdenarColuna === "banca"){
+      const ba = (a.banca||"").trim(), bb = (b.banca||"").trim();
+      const aVazia = !ba, bVazia = !bb;
+      const aMulti = ba.includes(",");
+      const bMulti = bb.includes(",");
+      // ordem de grupo: banca unica (G01..G25) primeiro, depois folguista (multiplas bancas), depois vazia
+      const grupoOrdemA = aVazia ? 2 : (aMulti ? 1 : 0);
+      const grupoOrdemB = bVazia ? 2 : (bMulti ? 1 : 0);
+      if(grupoOrdemA !== grupoOrdemB) return dir*(grupoOrdemA - grupoOrdemB);
+      if(ba !== bb) return dir*ba.localeCompare(bb, undefined, {numeric:true});
+    }
+    const ordemTipo = {"Fundidor":0, "Fundidor/Ajudante":1, "Ajudante":2};
+    if(a.tipo !== b.tipo) return (ordemTipo[a.tipo]??1) - (ordemTipo[b.tipo]??1);
+    return a.nome.localeCompare(b.nome);
+  });
+
+  const seta = (coluna) => bdOrdenarColuna === coluna ? (bdOrdenarDirecao === "asc" ? " ▲" : " ▼") : " ⇅";
+
+  let html = `<h2>Banco de Dados — Todos os Funcionários</h2>`;
+  html += `<p style="color:var(--muted);font-size:.72rem;margin:0 0 10px;">Lista independente de fundidores e ajudantes por grupo (F/H/B/D). Adicionar ou editar a chapa/grupo aqui já corrige automaticamente nome, cor e banca em Dados Originais.</p>`;
+
+  html += `<div class="add-ajudante">
+    <input type="text" id="bd-novo-nome" placeholder="Nome...">
+    <input type="text" id="bd-novo-chapa" placeholder="Chapa..." style="max-width:80px;background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:.72rem;">
+    <select id="bd-novo-tipo">
+      <option value="Fundidor">Fundidor</option>
+      <option value="Ajudante">Ajudante</option>
+      <option value="Fundidor/Ajudante">Fundidor/Ajudante</option>
+    </select>
+    <select id="bd-novo-grupo">
+      <option value="F">F</option>
+      <option value="H">H</option>
+      <option value="B">B</option>
+      <option value="D">D</option>
+    </select>
+    <button class="add-btn" onclick="adicionarBancoDados()">+ Adicionar</button>
+  </div>
+  <button class="whatsapp-btn" style="margin-top:6px;" onclick="sincronizarTodasCoresBancoDados()">🎨 Corrigir cor, nome e banca em Dados Originais</button>
+  <button class="print-btn" style="margin-top:6px;" onclick="conferirChapasBancoDados()">🔍 Conferir chapas com Dados Originais</button>
+  <button class="undo-btn" style="margin-top:6px;" onclick="corrigirChapaBancaTrocada()">🔀 Corrigir chapa/banca trocados</button>
+  <span id="copy-feedback-bancodados" class="copy-feedback"></span>
+  <button class="reset-btn" onclick="restaurarBancoDados()">Restaurar a Aba</button>
+  <button id="btn-bd-salvar-padrao" class="undo-btn" style="margin-top:6px;" onclick="salvarBancoDadosComoOriginal()">⭐ Salvar dados</button>`;
+
+  const contagem = {F:{Fundidor:0,Ajudante:0}, H:{Fundidor:0,Ajudante:0}, B:{Fundidor:0,Ajudante:0}, D:{Fundidor:0,Ajudante:0}};
+  BANCO_DADOS_LISTA.forEach(p=>{
+    if(!contagem[p.grupo]) return;
+    if(p.tipo === "Fundidor/Ajudante"){
+      contagem[p.grupo].Ajudante++;
+    } else if(contagem[p.grupo][p.tipo] !== undefined){
+      contagem[p.grupo][p.tipo]++;
+    }
+  });
+  let totalF=0, totalAj=0;
+  html += `<div class="kpis">`;
+  ["F","H","B","D"].forEach(g=>{
+    const f = contagem[g].Fundidor, a = contagem[g].Ajudante;
+    totalF += f; totalAj += a;
+    html += `<div class="kpi"><div class="n">${f+a}</div><div class="l">${g}: ${f} fund. + ${a} aj.</div></div>`;
+  });
+  html += `<div class="kpi"><div class="n">${totalF}</div><div class="l">Total Fundidores</div></div>
+    <div class="kpi"><div class="n">${totalAj}</div><div class="l">Total Ajudantes</div></div>
+    <div class="kpi"><div class="n">${totalF+totalAj}</div><div class="l">Total Geral</div></div>
+  </div>`;
+
+  html += `<div class="table-wrap"><table><thead><tr><th onclick="bdOrdenarPor('grupo')" style="cursor:pointer;">Grupo${seta("grupo")}</th><th>Chapa</th><th onclick="bdOrdenarPor('banca')" style="cursor:pointer;">Banca(s)${seta("banca")}</th><th>Tipo</th><th>Nome</th><th>Telefone</th><th></th></tr></thead><tbody>`;
+  BANCO_DADOS_LISTA.forEach((p,idx)=>{
+    html += `<tr class="ajrow-${p.grupo}">
+      <td>
+        <select onchange="mudarGrupoBancoDados(${idx}, this.value)" style="-webkit-appearance:none;-moz-appearance:none;appearance:none;background:var(--${p.grupo});color:#fff;font-weight:900;border:1px solid var(--border);border-radius:4px;padding:4px 10px;font-size:1.05rem;">
+          <option value="F" ${p.grupo==="F"?"selected":""}>F</option>
+          <option value="H" ${p.grupo==="H"?"selected":""}>H</option>
+          <option value="B" ${p.grupo==="B"?"selected":""}>B</option>
+          <option value="D" ${p.grupo==="D"?"selected":""}>D</option>
+        </select>
+      </td>
+      <td><span class="chapa-cell" contenteditable="true" data-bd-campo="chapa" data-bd-idx="${idx}">${p.chapa||""}</span></td>
+      <td><span class="chapa-cell" contenteditable="true" data-bd-campo="banca" data-bd-idx="${idx}" style="font-size:.7rem;font-weight:400;min-width:60px;">${p.banca||""}</span></td>
+      <td>
+        <select onchange="mudarTipoBancoDados(${idx}, this.value)" style="background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:4px 6px;font-size:.72rem;">
+          <option value="Fundidor" ${p.tipo==="Fundidor"?"selected":""}>Fundidor</option>
+          <option value="Ajudante" ${p.tipo==="Ajudante"?"selected":""}>Ajudante</option>
+          <option value="Fundidor/Ajudante" ${p.tipo==="Fundidor/Ajudante"?"selected":""}>Fundidor/Ajudante</option>
+        </select>
+      </td>
+      <td>${p.nome}</td>
+      <td><span class="chapa-cell" contenteditable="true" data-bd-campo="telefone" data-bd-idx="${idx}" style="font-size:.7rem;font-weight:400;min-width:90px;">${p.telefone||""}</span></td>
+      <td><span class="del-btn" onclick="removerBancoDados(${idx})">✕</span></td>
+    </tr>`;
+  });
+  html += `</tbody></table></div>`;
+  return html;
+}
+// Gera as abas de escala "duplicadas" com data (ex: "F 03/08", "F 04/08"...),
+// cobrindo os próximos 8 dias (1 ciclo completo do rodízio F→H→B→D)
+function gerarSecoesEscalasDatadas(){
+  return proximosDiasComLetra(8).map(dia=>{
+    const idData = dia.dataStr.replace(/-/g,"");
+    const chave = dia.letra + "_" + idData;
+    const labelData = String(dia.data.getDate()).padStart(2,"0") + "/" + String(dia.data.getMonth()+1).padStart(2,"0");
+    return {
+      id: chave,
+      label: `${dia.letra} ${labelData}`,
+      render: ()=>escalaHTML(dia.letra, chave, dia)
+    };
+  });
+}
+
+let SECOES = [
+  {id:"resumo", label:"Resumo", render:resumoHTML},
+  ...gerarSecoesEscalasDatadas(),
+  {id:"calendario", label:"Calendário de Folgas", render:calendarioFolgasHTML},
+  {id:"ajudantes", label:"Lista Ajudantes", render:ajudantesListaHTML},
+  {id:"atestados", label:"Atestados e Compensações", render:atestadosHTML},
+  {id:"original", label:"Dados Originais", render:dadosOriginaisHTML},
+  {id:"importarexcel", label:"Importar Excel", render:importarExcelHTML},
+  {id:"bancodados", label:"Banco de Dados", render:bancoDadosHTML},
+];
+
+// ---- Diagnostico: verifica se o navegador realmente permite salvar dados ----
+(function checarArmazenamento(){
+  let funciona = false;
+  let motivo = "";
+  try{
+    const teste = "__teste_armazenamento__";
+    localStorage.setItem(teste, "1");
+    funciona = localStorage.getItem(teste) === "1";
+    localStorage.removeItem(teste);
+    if(!funciona) motivo = "o navegador aceitou gravar mas não devolveu o valor";
+  }catch(err){
+    funciona = false;
+    motivo = (err && err.message) ? err.message : "acesso negado";
+  }
+
+  if(!funciona){
+    const aviso = document.createElement("div");
+    aviso.style.cssText = "background:#5a2020;color:#ffd9d9;border:2px solid #e88;border-radius:8px;padding:10px 14px;margin:8px;font-size:.78rem;line-height:1.5;";
+    aviso.innerHTML = `<b>⚠️ Este navegador não está salvando os dados</b><br>
+      Motivo: ${motivo}<br><br>
+      Prováveis causas: aba anônima/privada, bloqueio de cookies e dados do site, ou espaço de armazenamento cheio.<br><br>
+      <b>O que fazer:</b> saia do modo anônimo, libere "cookies e dados do site" nas configurações do navegador, e recarregue esta página. Enquanto isso, tudo que você editar será perdido ao fechar.`;
+    document.body.insertBefore(aviso, document.body.firstChild);
+  }
+})();
+
+const tabsEl = document.getElementById("tabs");
+const mainEl = document.getElementById("main");
+
+// ---- Ordem das abas (personalizável pelo usuário) ----
+let ORDEM_ABAS = SECOES.map(s=>s.id);
+try{
+  const salva = JSON.parse(localStorage.getItem("ordemAbas") || "null");
+  if(Array.isArray(salva) && salva.length){
+    // mantém só ids que ainda existem no app, e adiciona no fim qualquer aba nova que não estava salva
+    const validos = salva.filter(id => SECOES.some(s=>s.id===id));
+    const faltando = SECOES.map(s=>s.id).filter(id => !validos.includes(id));
+    ORDEM_ABAS = validos.concat(faltando);
+  }
+}catch(e){}
+
+function salvarOrdemAbas(){
+  try{ localStorage.setItem("ordemAbas", JSON.stringify(ORDEM_ABAS)); }catch(e){}
+}
+
+function secoesOrdenadas(){
+  return ORDEM_ABAS.map(id => SECOES.find(s=>s.id===id)).filter(Boolean);
+}
+
+function moverAba(id, delta){
+  const idx = ORDEM_ABAS.indexOf(id);
+  const novoIdx = idx + delta;
+  if(idx===-1 || novoIdx < 0 || novoIdx >= ORDEM_ABAS.length) return;
+  [ORDEM_ABAS[idx], ORDEM_ABAS[novoIdx]] = [ORDEM_ABAS[novoIdx], ORDEM_ABAS[idx]];
+  salvarOrdemAbas();
+  reconstruirNav();
+}
+
+function restaurarOrdemAbasPadrao(){
+  ORDEM_ABAS = SECOES.map(s=>s.id);
+  salvarOrdemAbas();
+  reconstruirNav();
+}
+
+function reconstruirNav(){
+  tabsEl.innerHTML = "";
+  mainEl.innerHTML = "";
+  secoesOrdenadas().forEach(s=>{
+    const btn = document.createElement("button");
+    btn.textContent = s.label;
+    btn.onclick = ()=>showSection(s.id);
+    btn.id = "tab-"+s.id;
+    tabsEl.appendChild(btn);
+
+    const sec = document.createElement("section");
+    sec.id = "sec-"+s.id;
+    sec.innerHTML = s.render();
+    mainEl.appendChild(sec);
+  });
+  showSection(activeTab);
+}
+
+function renderAll(){
+  SECOES.forEach(s=>{
+    const el = document.getElementById("sec-"+s.id);
+    if(el) el.innerHTML = s.render();
+  });
+}
+
+let activeTab = "resumo";
+let ultimoDiaRenderizado = hojeSemHora().getTime();
+
+// Se o dia virou desde a última vez que a tela foi montada, recalcula tudo
+// (situação de atestado, "de folga hoje" etc. dependem da data de hoje)
+function atualizarSeDiaVirou(){
+  const hojeAgora = hojeSemHora().getTime();
+  if(hojeAgora !== ultimoDiaRenderizado){
+    ultimoDiaRenderizado = hojeAgora;
+    // as abas de escala têm data no id/rótulo (ex: F_20260803) — precisam ser
+    // reconstruídas quando o dia muda, senão ficam com data errada
+    const semEscalasAntigas = SECOES.filter(s => !/^[FHBD]_\d{8}$/.test(s.id));
+    const idxCalendario = semEscalasAntigas.findIndex(s=>s.id==="calendario");
+    const novasEscalas = gerarSecoesEscalasDatadas();
+    SECOES = idxCalendario >= 0
+      ? [...semEscalasAntigas.slice(0, idxCalendario), ...novasEscalas, ...semEscalasAntigas.slice(idxCalendario)]
+      : [...semEscalasAntigas, ...novasEscalas];
+    reconstruirNav();
+    return true;
+  }
+  return false;
+}
+
+function showSection(id){
+  atualizarSeDiaVirou();
+  if(!document.getElementById("tab-"+id)){
+    id = "resumo"; // aba antiga não existe mais (ex: escala de data que já passou)
+  }
+  activeTab = id;
+  document.querySelectorAll("nav button").forEach(b=>b.classList.remove("active"));
+  document.querySelectorAll("main section").forEach(s=>s.classList.remove("active"));
+  document.getElementById("tab-"+id).classList.add("active");
+  document.getElementById("sec-"+id).classList.add("active");
+}
+
+reconstruirNav();
+
+// cobre o caso do celular: app ficou aberto em segundo plano e a pessoa volta pra ele num dia diferente
+document.addEventListener("visibilitychange", function(){
+  if(document.visibilityState === "visible"){
+    if(atualizarSeDiaVirou()) showSection(activeTab);
+  }
+});
+
+mainEl.addEventListener("focusin", function(e){
+  if(!e.target.classList.contains("chapa-cell")) return;
+
+  const orig = e.target.dataset.orig;
+  if(orig === "fixo-chapa" || orig === "folg-chapa"){
+    const sec = document.getElementById("sec-original");
+    if(!sec) return;
+    const valor = e.target.textContent.trim();
+    sec.querySelectorAll('.chapa-cell[data-orig="fixo-chapa"], .chapa-cell[data-orig="folg-chapa"]').forEach(el=>{
+      el.classList.remove("chapa-highlight");
+    });
+    if(!valor) return;
+    sec.querySelectorAll('.chapa-cell[data-orig="fixo-chapa"], .chapa-cell[data-orig="folg-chapa"]').forEach(el=>{
+      if(el.textContent.trim() === valor){
+        el.classList.add("chapa-highlight");
+      }
+    });
+    return;
+  }
+
+  const g = e.target.dataset.escala;
+  if(g){
+    const banca = e.target.dataset.banca;
+    const valor = e.target.textContent.trim();
+    const sec = document.getElementById("sec-"+g);
+    if(sec){
+      sec.querySelectorAll('.chapa-cell[data-escala]').forEach(el=>{
+        el.classList.remove("chapa-highlight");
+      });
+      if(valor){
+        sec.querySelectorAll('.chapa-cell[data-escala]').forEach(el=>{
+          if(el.textContent.trim() === valor){
+            el.classList.add("chapa-highlight");
+          }
+        });
+      }
+    }
+    const fb = document.getElementById("copy-feedback-"+g);
+    if(!fb) return;
+    if(!valor){ fb.textContent = ""; return; }
+    const nomeAtual = NOME_POR_CHAPA[valor] || NOME_POR_CHAPA_ORIGINAL[valor];
+    const outras = localizarChapa(valor, banca);
+    fb.textContent = outras.length > 0
+      ? `ℹ️ ${nomeAtual || valor} também está em: ${outras.join(", ")}`
+      : `${nomeAtual || valor} só está aqui (${banca}).`;
+  }
+});
+
+mainEl.addEventListener("focusout", function(e){
+  if(!e.target.classList.contains("chapa-cell")) return;
+  const novoValor = e.target.textContent.trim();
+  if(e.target.dataset.escala){
+    saveBancaChapa(e.target.dataset.escala, e.target.dataset.banca, novoValor);
+  } else if(e.target.dataset.orig){
+    tratarEdicaoOriginal(e.target.dataset.orig, e.target.dataset.banca, novoValor);
+    return;
+  } else if(e.target.dataset.bdCampo){
+    const idx = parseInt(e.target.dataset.bdIdx, 10);
+    if(BANCO_DADOS_LISTA[idx]){
+      if(e.target.dataset.bdCampo === "chapa"){
+        BANCO_DADOS_LISTA[idx].chapa = novoValor;
+        salvarBancoDados();
+        sincronizarChapaComDadosOriginais(idx);
+        renderAll();
+        showSection(activeTab);
+      } else if(e.target.dataset.bdCampo === "telefone"){
+        BANCO_DADOS_LISTA[idx].telefone = novoValor;
+        salvarBancoDados();
+      } else {
+        BANCO_DADOS_LISTA[idx].banca = novoValor;
+        salvarBancoDados();
+      }
+    }
+    return;
+  } else {
+    return;
+  }
+  renderAll();
+  showSection(activeTab);
+});
+
+function localizarChapa(chapa, bancaAtual){
+  if(!chapa) return [];
+  const ocorrencias = [];
+  Object.keys(FIXO_DATA).forEach(b=>{
+    if(b !== bancaAtual && FIXO_DATA[b].chapa === chapa){
+      ocorrencias.push(`${b} (Fixo)`);
+    }
+  });
+  Object.keys(FOLGUISTA_DATA).forEach(b=>{
+    if(b !== bancaAtual && FOLGUISTA_DATA[b].chapa === chapa){
+      ocorrencias.push(`${b} (Folguista)`);
+    }
+  });
+  return ocorrencias;
+}
+
+// Busca a chapa cadastrada pra um nome — prioriza o Banco de Dados,
+// e cai pro mapa de nomes originais da planilha se não achar lá.
+function chapaPorNome(nome){
+  if(!nome) return null;
+  const alvo = normalizaNome(nome);
+  const registro = BANCO_DADOS_LISTA.find(p=>p.chapa && normalizaNome(p.nome)===alvo);
+  if(registro) return registro.chapa;
+  const entradaOriginal = Object.entries(NOME_POR_CHAPA_ORIGINAL).find(([,n])=>normalizaNome(n)===alvo);
+  return entradaOriginal ? entradaOriginal[0] : null;
+}
+
+// Busca a chapa de uma pessoa direto em Dados Originais (dados ao vivo primeiro,
+// depois a planilha original de baseline), casando pelo nome
+function chapaEmDadosOriginais(nome){
+  if(!nome) return null;
+  const alvo = normalizaNome(nome);
+  const aoVivo = Object.entries(NOME_POR_CHAPA).find(([,n])=>normalizaNome(n)===alvo);
+  if(aoVivo) return aoVivo[0];
+  const original = Object.entries(NOME_POR_CHAPA_ORIGINAL).find(([,n])=>normalizaNome(n)===alvo);
+  return original ? original[0] : null;
+}
+
+// Corrige os nomes em Dados Originais (FIXO_DATA/FOLGUISTA_DATA) usando os nomes
+// desta planilha importada como referência — casa pela chapa que foi digitada
+function corrigirNomesEmDadosOriginaisComImportacaoExcel(){
+  const p = IMPORTACAO_EXCEL_PENDENTE;
+  const mostrarFeedback = (texto)=>{
+    ["copy-feedback-importarexcel-busca","copy-feedback-dadosoriginais-corrigir"].forEach(id=>{
+      const el = document.getElementById(id);
+      if(el) el.textContent = texto;
+    });
+  };
+  if(!p || !p.linhas){
+    mostrarFeedback("⚠️ Nenhuma planilha analisada ainda. Vá em \"Importar Excel\" e suba um arquivo primeiro.");
+    return;
+  }
+
+  let corrigidos = 0;
+  const detalhes = [];
+
+  p.linhas.forEach(linha=>{
+    if(!linha.chapa || !linha.nome) return;
+    Object.keys(FIXO_DATA).forEach(b=>{
+      if(FIXO_DATA[b].chapa === linha.chapa && FIXO_DATA[b].nome !== linha.nome){
+        detalhes.push(`${b} (Fixo): "${FIXO_DATA[b].nome}" → "${linha.nome}"`);
+        FIXO_DATA[b].nome = linha.nome;
+        corrigidos++;
+      }
+    });
+    Object.keys(FOLGUISTA_DATA).forEach(b=>{
+      if(FOLGUISTA_DATA[b].chapa === linha.chapa && FOLGUISTA_DATA[b].nome !== linha.nome){
+        detalhes.push(`${b} (Folguista): "${FOLGUISTA_DATA[b].nome}" → "${linha.nome}"`);
+        FOLGUISTA_DATA[b].nome = linha.nome;
+        corrigidos++;
+      }
+    });
+  });
+
+  if(corrigidos > 0){
+    try{
+      localStorage.setItem("fixoData", JSON.stringify(FIXO_DATA));
+      localStorage.setItem("folguistaData", JSON.stringify(FOLGUISTA_DATA));
+    }catch(e){}
+    NOME_POR_CHAPA = construirNomePorChapa();
+    ESCALAS = gerarEscalas();
+    LISTA_FUNDIDORES = gerarListaFundidores();
+    SEM_BANCA_TRABALHANDO = calcularSemBancaTrabalhando();
+  }
+
+  renderAll();
+  showSection(activeTab);
+
+  mostrarFeedback(corrigidos > 0
+    ? `✅ ${corrigidos} nome(s) corrigido(s) em Dados Originais: ${detalhes.join(" | ")}`
+    : "Nenhum nome diferente encontrado pras chapas preenchidas nesta planilha.");
+}
+
+function buscarChapasImportacaoExcelEmDadosOriginais(){
+  const p = IMPORTACAO_EXCEL_PENDENTE;
+  if(!p || !p.linhas) return;
+  let achados = 0;
+  p.linhas.forEach(linha=>{
+    if(linha.chapa) return; // já tem chapa, não mexe
+    const chapaAchada = chapaEmDadosOriginais(linha.nome);
+    if(chapaAchada){
+      linha.chapa = chapaAchada;
+      achados++;
+    }
+  });
+  renderAll();
+  showSection(activeTab);
+  const fb = document.getElementById("copy-feedback-importarexcel-busca");
+  if(fb){
+    fb.textContent = achados > 0
+      ? `✅ ${achados} chapa(s) encontrada(s) em Dados Originais e preenchida(s) automaticamente.`
+      : `Nenhuma chapa nova encontrada em Dados Originais pros nomes que ainda estão sem chapa.`;
+  }
+}
+
+function tratarEdicaoOriginal(tipo, banca, valor){
+  const fixoAntes = FIXO_DATA[banca] ? {...FIXO_DATA[banca]} : null;
+  const folguistaAntes = JSON.parse(JSON.stringify(FOLGUISTA_DATA));
+
+  // busca o nome ANTES de qualquer mutação, pra não se autorreferenciar com o nome antigo
+  // (com respaldo no mapa original, caso a chapa nao esteja mais no NOME_POR_CHAPA ao vivo)
+  const nomeRegistrado = valor ? (NOME_POR_CHAPA[valor] || NOME_POR_CHAPA_ORIGINAL[valor]) : undefined;
+  let chapaCorrigida = null;
+
+  if(tipo === "fixo-chapa"){
+    if(!FIXO_DATA[banca]) FIXO_DATA[banca] = {chapa:"",nome:"",grupo:null};
+    FIXO_DATA[banca].chapa = valor;
+    if(valor === ""){
+      FIXO_DATA[banca].nome = "BANCA PARADA";
+      FIXO_DATA[banca].grupo = null;
+    } else if(nomeRegistrado){
+      FIXO_DATA[banca].nome = nomeRegistrado;
+      // sempre ajusta o grupo/cor pra bater com o grupo da pessoa nova
+      const grupoDaPessoa = grupoPessoalPorNome(nomeRegistrado, banca, valor);
+      if(grupoDaPessoa) FIXO_DATA[banca].grupo = grupoDaPessoa;
+    }
+    // se essa chapa era de um folguista em outra banca, apaga a chapa/nome de la
+    if(valor){
+      Object.keys(FOLGUISTA_DATA).forEach(b=>{
+        if(FOLGUISTA_DATA[b].chapa === valor){
+          FOLGUISTA_DATA[b] = {chapa:"", nome:"SEM FOLGUISTA"};
+        }
+      });
+    }
+  } else if(tipo === "fixo-nome"){
+    if(!FIXO_DATA[banca]) FIXO_DATA[banca] = {chapa:"",nome:"",grupo:null};
+    FIXO_DATA[banca].nome = valor;
+    if(valor && valor !== "BANCA PARADA"){
+      const chapaEncontrada = chapaPorNome(valor);
+      if(chapaEncontrada && chapaEncontrada !== FIXO_DATA[banca].chapa){
+        FIXO_DATA[banca].chapa = chapaEncontrada;
+        chapaCorrigida = chapaEncontrada;
+      }
+      const grupoDaPessoa = grupoPessoalPorNome(valor, banca, FIXO_DATA[banca].chapa);
+      if(grupoDaPessoa) FIXO_DATA[banca].grupo = grupoDaPessoa;
+    }
+  } else if(tipo === "folg-chapa"){
+    if(!FOLGUISTA_DATA[banca]) FOLGUISTA_DATA[banca] = {chapa:"",nome:""};
+    FOLGUISTA_DATA[banca].chapa = valor;
+    if(valor === ""){
+      FOLGUISTA_DATA[banca].nome = "SEM FOLGUISTA";
+    } else if(nomeRegistrado){
+      FOLGUISTA_DATA[banca].nome = nomeRegistrado;
+    }
+  } else if(tipo === "folg-nome"){
+    if(!FOLGUISTA_DATA[banca]) FOLGUISTA_DATA[banca] = {chapa:"",nome:""};
+    FOLGUISTA_DATA[banca].nome = valor;
+    if(valor && valor !== "SEM FOLGUISTA"){
+      const chapaEncontrada = chapaPorNome(valor);
+      if(chapaEncontrada && chapaEncontrada !== FOLGUISTA_DATA[banca].chapa){
+        FOLGUISTA_DATA[banca].chapa = chapaEncontrada;
+        chapaCorrigida = chapaEncontrada;
+      }
+    }
+  }
+  NOME_POR_CHAPA = construirNomePorChapa();
+
+  HISTORICO.push({tipo:"original", banca, fixoAntes, folguistaAntes, label: banca + " (Dados Originais)"});
+  salvarHistorico();
+
+  document.getElementById("sec-original").innerHTML = dadosOriginaisHTML();
+
+  if((tipo === "fixo-chapa" || tipo === "folg-chapa") && valor){
+    const outras = localizarChapa(valor, banca);
+    const fb = document.getElementById("copy-feedback-original");
+    if(fb){
+      fb.textContent = outras.length > 0
+        ? `ℹ️ ${nomeRegistrado || valor} também está em: ${outras.join(", ")}`
+        : `✅ ${nomeRegistrado || valor} só está aqui (${banca}).`;
+      setTimeout(()=>{ fb.textContent = ""; }, 4000);
+    }
+  } else if((tipo === "fixo-nome" || tipo === "folg-nome") && chapaCorrigida){
+    const fb = document.getElementById("copy-feedback-original");
+    if(fb){
+      fb.textContent = `✅ Chapa de ${valor} corrigida automaticamente para ${chapaCorrigida} (${banca}).`;
+      setTimeout(()=>{ fb.textContent = ""; }, 4000);
+    }
+  }
+}
+
+mainEl.addEventListener("change", function(e){
+  if(e.target.dataset && e.target.dataset.orig === "fixo-grupo"){
+    const banca = e.target.dataset.banca;
+    const fixoAntes = FIXO_DATA[banca] ? {...FIXO_DATA[banca]} : null;
+    const folguistaAntes = JSON.parse(JSON.stringify(FOLGUISTA_DATA));
+
+    if(!FIXO_DATA[banca]) FIXO_DATA[banca] = {chapa:"",nome:"",grupo:null};
+    FIXO_DATA[banca].grupo = e.target.value || null;
+    if(FIXO_DATA[banca].grupo === null && !FIXO_DATA[banca].nome){
+      FIXO_DATA[banca].nome = "BANCA PARADA";
+    }
+
+    HISTORICO.push({tipo:"original", banca, fixoAntes, folguistaAntes, label: banca + " - grupo (Dados Originais)"});
+    salvarHistorico();
+
+    document.getElementById("sec-original").innerHTML = dadosOriginaisHTML();
+  }
+});
+
+mainEl.addEventListener("keydown", function(e){
+  if(e.target.classList.contains("chapa-cell") && e.key === "Enter"){
+    e.preventDefault();
+    e.target.blur();
+  }
+});
+
+function desfazerUltimaEdicao(g){
+  const idBtn = g ? "btn-undo-"+g : "btn-undo";
+
+  if(HISTORICO.length === 0){
+    const btn = document.getElementById(idBtn);
+    if(btn){
+      const original = btn.textContent;
+      btn.textContent = "Nada para desfazer";
+      setTimeout(()=>{ btn.textContent = original; }, 1500);
+    }
+    return;
+  }
+
+  const ultima = HISTORICO.pop();
+  salvarHistorico();
+
+  if(ultima.tipo === "banca"){
+    if(ultima.anterior === undefined){
+      delete BANCA_OVERRIDES[ultima.chave];
+    } else {
+      BANCA_OVERRIDES[ultima.chave] = ultima.anterior;
+    }
+    try{ localStorage.setItem("bancaOverrides", JSON.stringify(BANCA_OVERRIDES)); }catch(e){}
+  } else if(ultima.tipo === "original"){
+    if(ultima.fixoAntes === null){
+      delete FIXO_DATA[ultima.banca];
+    } else {
+      FIXO_DATA[ultima.banca] = ultima.fixoAntes;
+    }
+    FOLGUISTA_DATA = ultima.folguistaAntes;
+    NOME_POR_CHAPA = construirNomePorChapa();
+  } else {
+    if(ultima.anterior === undefined){
+      delete CHAPA_OVERRIDES[ultima.chave];
+    } else {
+      CHAPA_OVERRIDES[ultima.chave] = ultima.anterior;
+    }
+    try{ localStorage.setItem("chapaOverrides", JSON.stringify(CHAPA_OVERRIDES)); }catch(e){}
+  }
+
+  renderAll();
+  showSection(activeTab);
+
+  // busca o botão de novo, porque o renderAll() acabou de recriar o elemento
+  const btn = document.getElementById(idBtn);
+  if(btn){
+    const original = "↩️ Desfazer";
+    btn.textContent = "✅ Desfeito: " + ultima.label;
+    setTimeout(()=>{ btn.textContent = original; }, 1800);
+  }
+}
+
+const CHAVES_BACKUP = [
+  "fixoData","folguistaData","fixoDataBaseline","folguistaDataBaseline",
+  "bancoDadosLista","bancoDadosPadrao",
+  "chapaOverrides","bancaOverrides","ajudanteExtras","historicoChapas",
+  "folguistaGrupoProprio","grupoOriginalPorNome","grupoOriginalPorChapa","listaFundidoresExtras",
+  "atestados","ordemAbas","bancoHoras"
+];
+
+// Gera uma cópia completa deste app (mesmo HTML) com os dados atuais gravados
+// dentro da tag oculta #backup-embutido — assim, ao subir esse arquivo pro GitHub,
+// os dados viajam junto dentro do próprio HTML, sem precisar de arquivo separado.
+function gerarHtmlComBackupEmbutido(){
+  const fb = document.getElementById("copy-feedback-embutido");
+  const dados = {};
+  let algumDado = false;
+  CHAVES_BACKUP.forEach(k=>{
+    const v = localStorage.getItem(k);
+    if(v !== null){ dados[k] = v; algumDado = true; }
+  });
+
+  if(!algumDado){
+    if(fb) fb.textContent = "⚠️ Não há nada salvo neste dispositivo ainda pra embutir.";
+    return;
+  }
+
+  try{
+    const tag = document.getElementById("backup-embutido");
+    const tagAnterior = tag ? tag.textContent : null;
+    if(tag) tag.textContent = JSON.stringify(dados);
+
+    const conteudoHtml = "<!DOCTYPE html>\n" + document.documentElement.outerHTML;
+
+    // devolve a tag ao estado anterior na página aberta agora (não precisa carregar o próprio backup nela mesma)
+    if(tag && tagAnterior !== null) tag.textContent = tagAnterior;
+
+    const dataStr = new Date().toISOString().slice(0,10);
+    const nomeArquivo = `index.html`;
+
+    function baixarPeloMetodoTradicional(){
+      const blob = new Blob([conteudoHtml], {type:"text/html"});
+      if(navigator.msSaveBlob){
+        navigator.msSaveBlob(blob, nomeArquivo);
+      } else {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = nomeArquivo;
+        a.rel = "noopener";
+        a.style.display = "none";
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(()=>{
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }, 1500);
+      }
+      if(fb) fb.textContent = `✅ ${nomeArquivo} gerado com os dados embutidos (${dataStr}) — suba esse arquivo pro GitHub no lugar do antigo.`;
+    }
+
+    if(window.showSaveFilePicker){
+      (async ()=>{
+        try{
+          const handle = await window.showSaveFilePicker({
+            suggestedName: nomeArquivo,
+            types: [{ description: "Página HTML", accept: {"text/html": [".html"]} }]
+          });
+          const writable = await handle.createWritable();
+          await writable.write(conteudoHtml);
+          await writable.close();
+          if(fb) fb.textContent = `✅ ${nomeArquivo} salvo com os dados embutidos (${dataStr}).`;
+        }catch(err){
+          if(err && err.name === "AbortError") return;
+          baixarPeloMetodoTradicional();
+        }
+      })();
+      return;
+    }
+
+    baixarPeloMetodoTradicional();
+  }catch(err){
+    if(fb) fb.textContent = "⚠️ Não consegui gerar o arquivo. Erro: " + (err && err.message ? err.message : err);
+  }
+}
+
+// Carrega manualmente os dados que estiverem guardados na tag oculta #backup-embutido
+// deste arquivo específico — útil quando o navegador já tem outros dados salvos e
+// por isso o carregamento automático na abertura não rodou sozinho.
+function carregarBackupEmbutidoManual(){
+  const fb = document.getElementById("copy-feedback-embutido");
+  const tag = document.getElementById("backup-embutido");
+  let dados;
+  try{
+    dados = JSON.parse(tag ? (tag.textContent || "{}") : "{}");
+  }catch(err){
+    if(fb) fb.textContent = "⚠️ O backup embutido neste arquivo está corrompido.";
+    return;
+  }
+  if(!dados || Object.keys(dados).length === 0){
+    if(fb) fb.textContent = "⚠️ Este arquivo não tem nenhum backup embutido nele.";
+    return;
+  }
+  if(!confirm("Isso vai substituir os dados salvos neste dispositivo pelos dados embutidos neste arquivo HTML. Continuar?")){
+    return;
+  }
+  let importados = 0;
+  Object.keys(dados).forEach(k=>{
+    if(CHAVES_BACKUP.includes(k)){
+      try{ localStorage.setItem(k, dados[k]); importados++; }catch(err){}
+    }
+  });
+  alert(`${importados} item(ns) importado(s) do backup embutido! A página vai recarregar agora.`);
+  location.reload();
+}
+
+// Corrige chapa/nome em Dados Originais (FIXO_DATA/FOLGUISTA_DATA) usando o cadastro
+// da aba "Banco de Dados" como referência, casando pelo NOME da pessoa.
+// O status Fixo/Folguista de cada banca é preservado — só chapa e nome são atualizados.
+function corrigirDadosOriginaisComBancoDados(){
+  const mapaPorNome = {};
+  BANCO_DADOS_LISTA.forEach(p=>{
+    if(p.chapa) mapaPorNome[normalizaNome(p.nome)] = {chapa: p.chapa, nome: p.nome};
+  });
+
+  let atualizados = 0;
+  const detalhes = [];
+
+  Object.keys(FIXO_DATA).forEach(b=>{
+    const f = FIXO_DATA[b];
+    if(!f.nome || f.nome === "BANCA PARADA") return;
+    const cadastro = mapaPorNome[normalizaNome(f.nome)];
+    if(cadastro && cadastro.chapa !== f.chapa){
+      detalhes.push(`${b} (Fixo) ${f.nome}: chapa ${f.chapa || "—"} → ${cadastro.chapa}`);
+      f.chapa = cadastro.chapa;
+      atualizados++;
+    }
+    // corrige banca que ficou sem grupo/cor (ex: chapa 576) usando o mapa chapa->grupo,
+    // que é estável mesmo quando o nome está escrito diferente entre as abas
+    if(!f.grupo && f.chapa && GRUPO_ORIGINAL_POR_CHAPA[f.chapa]){
+      detalhes.push(`${b} (Fixo) ${f.nome}: grupo/cor restaurado para ${GRUPO_ORIGINAL_POR_CHAPA[f.chapa]}`);
+      f.grupo = GRUPO_ORIGINAL_POR_CHAPA[f.chapa];
+      atualizados++;
+    }
+  });
+
+  Object.keys(FOLGUISTA_DATA).forEach(b=>{
+    const fo = FOLGUISTA_DATA[b];
+    if(!fo.nome || fo.nome === "SEM FOLGUISTA") return;
+    const cadastro = mapaPorNome[normalizaNome(fo.nome)];
+    if(cadastro && cadastro.chapa !== fo.chapa){
+      detalhes.push(`${b} (Folguista) ${fo.nome}: chapa ${fo.chapa || "—"} → ${cadastro.chapa}`);
+      fo.chapa = cadastro.chapa;
+      atualizados++;
+    }
+  });
+
+  if(atualizados > 0){
+    try{
+      localStorage.setItem("fixoData", JSON.stringify(FIXO_DATA));
+      localStorage.setItem("folguistaData", JSON.stringify(FOLGUISTA_DATA));
+    }catch(e){}
+  }
+
+  return {atualizados, detalhes};
+}
+
+// Restaura só os ajustes pontuais de UMA escala (F, H, B ou D), sem afetar as outras
+// Restaura as 4 escalas (F, H, B, D) de uma vez, reconstruindo tudo a partir de Dados Originais
+function restauracaoGlobal(){
+  BANCA_OVERRIDES = {};
+  try{ localStorage.removeItem("bancaOverrides"); }catch(e){}
+
+  // remove do histórico as edições pontuais de banca de todas as escalas
+  HISTORICO = HISTORICO.filter(h => h.tipo !== "banca");
+  salvarHistorico();
+
+  ESCALAS = gerarEscalas();
+  NOME_POR_CHAPA = construirNomePorChapa();
+  LISTA_FUNDIDORES = gerarListaFundidores();
+  SEM_BANCA_TRABALHANDO = calcularSemBancaTrabalhando();
+  CAPACIDADE_BANCA = {};
+  ["F","H","B","D"].forEach(g=>{
+    ESCALAS[g].forEach(r=>{ CAPACIDADE_BANCA[r[0]] = (r[0]==="G25") ? 70 : 68; });
+  });
+
+  renderAll();
+  showSection(activeTab);
+
+  const btn = document.getElementById("btn-restauracao-global");
+  if(btn){
+    const original = "🔄 Restauração Global (escalas F/H/B/D)";
+    btn.textContent = "✅ As 4 escalas foram restauradas!";
+    btn.classList.add("confirm-pending");
+    setTimeout(()=>{
+      btn.textContent = original;
+      btn.classList.remove("confirm-pending");
+    }, 2000);
+  }
+}
+
+function resetEscala(g, chave){
+  chave = chave || g;
+  const prefixo = g + "|";
+
+  Object.keys(BANCA_OVERRIDES).forEach(k=>{
+    if(k.startsWith(prefixo)) delete BANCA_OVERRIDES[k];
+  });
+  try{ localStorage.setItem("bancaOverrides", JSON.stringify(BANCA_OVERRIDES)); }catch(e){}
+
+  // remove do histórico só as edições dessa escala, pra não sobrar "Desfazer" de algo já limpo
+  HISTORICO = HISTORICO.filter(h => !(h.tipo === "banca" && h.chave.startsWith(prefixo)));
+  salvarHistorico();
+
+  renderAll();
+  showSection(activeTab);
+
+  // busca o botão de novo, porque o renderAll() acabou de recriar o elemento
+  const btn = document.getElementById("btn-reset-"+chave);
+  if(btn){
+    const original = "Restaurar só a escala " + g;
+    btn.textContent = "✅ Restaurado!";
+    btn.classList.add("confirm-pending");
+    setTimeout(()=>{
+      btn.textContent = original;
+      btn.classList.remove("confirm-pending");
+    }, 1800);
+  }
+}
+
+
+</script>
+</body>
+</html>
