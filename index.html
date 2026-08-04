@@ -502,8 +502,8 @@ let CAPACIDADE_BANCA = {};
 
 const padRight = (s,n) => s.toString().slice(0,n).padEnd(n," ");
 
-function textoWhatsApp(g){
-  const eff = effectiveRows(g);
+function textoWhatsApp(g, chave){
+  const eff = effectiveRows(g, chave);
   const produzindo = eff.filter(r=>r.cap>0).length;
   const producao = eff.reduce((a,r)=>a+r.cap,0);
 
@@ -567,7 +567,7 @@ function copiarTexto(texto, feedbackId){
 // Monta o PDF da escala e devolve o objeto jsPDF pronto (sem salvar/baixar ainda)
 function baixarPDF(g, chave){
   chave = chave || g;
-  const eff = effectiveRows(g);
+  const eff = effectiveRows(g, chave);
   const produzindo = eff.filter(r=>r.cap>0).length;
   const producao = eff.reduce((a,r)=>a+r.cap,0);
   const fb = document.getElementById("copy-feedback-"+chave);
@@ -637,12 +637,12 @@ function baixarPDF(g, chave){
 }
 
 function copiarWhatsApp(g, chave){
-  copiarTexto(textoWhatsApp(g), "copy-feedback-"+(chave||g));
+  copiarTexto(textoWhatsApp(g, chave), "copy-feedback-"+(chave||g));
 }
 
 // Desenha a tabela da escala (Banca, Chapa, Fundidor) + total num canvas e gera um PNG.
-function gerarImagemEscala(g){
-  const eff = effectiveRows(g);
+function gerarImagemEscala(g, chave){
+  const eff = effectiveRows(g, chave);
   const produzindo = eff.filter(r=>r.cap>0).length;
   const producao = eff.reduce((a,r)=>a+r.cap,0);
 
@@ -729,7 +729,7 @@ function baixarImagemEscala(g, chave){
   chave = chave || g;
   const fb = document.getElementById("copy-feedback-"+chave);
   try{
-    const canvas = gerarImagemEscala(g);
+    const canvas = gerarImagemEscala(g, chave);
     const nomeArquivo = `escala_${chave}.png`;
     const dataUrl = canvas.toDataURL("image/png");
     const blob = dataURLParaBlob(dataUrl);
@@ -773,7 +773,7 @@ async function compartilharImagemEscala(g, chave){
   chave = chave || g;
   const fb = document.getElementById("copy-feedback-"+chave);
   try{
-    const canvas = gerarImagemEscala(g);
+    const canvas = gerarImagemEscala(g, chave);
     const nomeArquivo = `escala_${chave}.png`;
     // toDataURL é síncrono (diferente de toBlob), então o clique do usuário
     // ainda está "válido" na hora de chamar o navigator.share logo abaixo
@@ -845,11 +845,12 @@ function ajudantesTrabalhando(g){
   return out;
 }
 
-function effectiveRows(g){
+function effectiveRows(g, chave){
+  chave = chave || g;
   const rows = ESCALAS[g];
   return rows.map(r=>{
     const [banca, chapaOrig, nomeOrig, sitOrig] = r;
-    const key = bancaKey(g, banca);
+    const key = bancaKey(chave, banca);
     const override = BANCA_OVERRIDES[key];
     if(override !== undefined){
       if(override === "0"){
@@ -869,10 +870,10 @@ function effectiveRows(g){
   });
 }
 
-function pessoasForaDaEscala(g){
+function pessoasForaDaEscala(g, chave){
   const placeholders = ["BANCA PARADA","SEM FOLGUISTA","BANCA TROCANDO"];
   const baseline = ESCALAS[g].map(r=>r[2]).filter(n=>!placeholders.includes(n));
-  const efetivos = effectiveRows(g).map(r=>r.nome).filter(n=>!placeholders.includes(n) && !n.startsWith("⚠️"));
+  const efetivos = effectiveRows(g, chave).map(r=>r.nome).filter(n=>!placeholders.includes(n) && !n.startsWith("⚠️"));
   return baseline.filter(n=>!efetivos.includes(n));
 }
 
@@ -906,14 +907,14 @@ function folguistasCobrindo(g){
 function escalaHTML(g, chave, dataInfo){
   chave = chave || g;
   const dataAlvo = dataInfo ? dataInfo.data : null;
-  const eff = effectiveRows(g);
+  const eff = effectiveRows(g, chave);
   const produzindo = eff.filter(r=>r.cap>0).length;
   const producao = eff.reduce((a,r)=>a+r.cap,0);
   const listaFolga = titularesDeFolga(g).concat(SEM_BANCA_FOLGA[g].map(n=>n+" (sem banca fixa)"));
   const listaTrab = folguistasCobrindo(g);
   const ajFolga = ajudantesDoGrupo(g);
   const ajTrab = ajudantesTrabalhando(g);
-  const fora = pessoasForaDaEscala(g);
+  const fora = pessoasForaDaEscala(g, chave);
 
   const tituloData = dataInfo ? ` — ${formatarDataBR(dataInfo.data)}` : ` — Folga do grupo ${g}`;
   let html = `<h2><span class="tag tag-${g}">${g}</span> Escala ${g}${tituloData}</h2>`;
@@ -930,7 +931,7 @@ function escalaHTML(g, chave, dataInfo){
   <button class="whatsapp-btn" onclick="compartilharImagemEscala('${g}','${chave}')">🖼️ Compartilhar imagem (WhatsApp)</button>
   <button class="print-btn" onclick="baixarImagemEscala('${g}','${chave}')">🖼️ Baixar imagem (PNG)</button>
   <button id="btn-undo-${chave}" class="undo-btn" onclick="desfazerUltimaEdicao('${chave}')">↩️ Desfazer</button>
-  <button id="btn-reset-${chave}" class="reset-btn" onclick="resetEscala('${g}','${chave}')">Restaurar só a escala ${g}</button>`;
+  <button id="btn-reset-${chave}" class="reset-btn" onclick="resetEscala('${g}','${chave}')">Restaurar só essa aba</button>`;
 
   html += `<div class="cols">
     <div class="col folga">
@@ -960,7 +961,7 @@ function escalaHTML(g, chave, dataInfo){
     const atestado = atestadoAtivoNaEscala(chapa, g, dataAlvo);
     const debito = !atestado ? debitoAtivoNaEscala(chapa, g, dataAlvo) : null;
     const cls = atestado ? "row-Atestado" : debito ? "row-Atestado" : (sit==="Fixo"?"row-Fixo":sit==="Folguista"?"row-Folguista":sit==="Ajustado"?"row-Folguista":sit==="Parada"?"row-Parada":"row-Semfolguista");
-    const chapaCell = `<span class="chapa-cell" contenteditable="true" data-escala="${g}" data-banca="${banca}">${chapa}</span>`;
+    const chapaCell = `<span class="chapa-cell" contenteditable="true" data-escala="${chave}" data-banca="${banca}">${chapa}</span>`;
     const situacaoTexto = atestado
       ? `🏥 Atestado<br>(volta ${formatarDataBR(dataRetornoAtestado(atestado))})`
       : debito
@@ -2467,7 +2468,10 @@ function importarExcelHTML(){
   let html = `<h2>Importar Excel — Banco de Dados</h2>`;
   html += `<p style="color:var(--muted);font-size:.72rem;margin:0 0 10px;">Suba uma planilha (.xlsx/.xls). O app procura os cabeçalhos Nome, Chapa/Mat., Tipo e Grupo automaticamente — e se a coluna do nome não tiver rótulo, ele identifica pelo texto mais longo da planilha. Antes de aplicar, você vê uma prévia do que foi lido. <b>Atenção:</b> confirmar a importação apaga todo o Banco de Dados atual e substitui pelo da planilha.</p>`;
 
-  html += `<input type="file" id="input-importar-bd-excel" accept=".xlsx,.xls,.xlsm,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel.sheet.macroEnabled.12" onchange="analisarPlanilhaExcel(event)" style="margin-bottom:10px;">
+  html += `<input type="file" id="input-importar-bd-excel" accept=".xlsx,.xls,.xlsm,.xlsb,.csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel.sheet.macroEnabled.12,application/x-msexcel,application/octet-stream,application/excel" onchange="analisarPlanilhaExcel(event)" style="margin-bottom:6px;">
+  <br>
+  <button class="reset-btn" onclick="document.getElementById('input-importar-bd-excel-sem-filtro').click()" style="margin-bottom:10px;">Não achou seu arquivo? Toque aqui pra ver todos os arquivos</button>
+  <input type="file" id="input-importar-bd-excel-sem-filtro" onchange="analisarPlanilhaExcel(event)" style="display:none;">
   <span id="copy-feedback-importarexcel" class="copy-feedback"></span>`;
 
   const p = IMPORTACAO_EXCEL_PENDENTE;
@@ -2976,8 +2980,8 @@ function gerarSecoesEscalasDatadas(){
 }
 
 let SECOES = [
-  {id:"resumo", label:"Resumo", render:resumoHTML},
   ...gerarSecoesEscalasDatadas(),
+  {id:"resumo", label:"Resumo", render:resumoHTML},
   {id:"calendario", label:"Calendário de Folgas", render:calendarioFolgasHTML},
   {id:"ajudantes", label:"Lista Ajudantes", render:ajudantesListaHTML},
   {id:"atestados", label:"Atestados e Compensações", render:atestadosHTML},
@@ -3087,11 +3091,8 @@ function atualizarSeDiaVirou(){
     // as abas de escala têm data no id/rótulo (ex: F_20260803) — precisam ser
     // reconstruídas quando o dia muda, senão ficam com data errada
     const semEscalasAntigas = SECOES.filter(s => !/^[FHBD]_\d{8}$/.test(s.id));
-    const idxCalendario = semEscalasAntigas.findIndex(s=>s.id==="calendario");
     const novasEscalas = gerarSecoesEscalasDatadas();
-    SECOES = idxCalendario >= 0
-      ? [...semEscalasAntigas.slice(0, idxCalendario), ...novasEscalas, ...semEscalasAntigas.slice(idxCalendario)]
-      : [...semEscalasAntigas, ...novasEscalas];
+    SECOES = [...novasEscalas, ...semEscalasAntigas];
     reconstruirNav();
     return true;
   }
@@ -3679,7 +3680,7 @@ function restauracaoGlobal(){
 
 function resetEscala(g, chave){
   chave = chave || g;
-  const prefixo = g + "|";
+  const prefixo = chave + "|";
 
   Object.keys(BANCA_OVERRIDES).forEach(k=>{
     if(k.startsWith(prefixo)) delete BANCA_OVERRIDES[k];
@@ -3696,7 +3697,7 @@ function resetEscala(g, chave){
   // busca o botão de novo, porque o renderAll() acabou de recriar o elemento
   const btn = document.getElementById("btn-reset-"+chave);
   if(btn){
-    const original = "Restaurar só a escala " + g;
+    const original = "Restaurar só essa aba";
     btn.textContent = "✅ Restaurado!";
     btn.classList.add("confirm-pending");
     setTimeout(()=>{
