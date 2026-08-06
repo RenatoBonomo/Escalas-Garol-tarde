@@ -647,14 +647,14 @@ function gerarImagemEscala(g, chave){
   const producao = eff.reduce((a,r)=>a+r.cap,0);
 
   const corGrupo = {F:"#5b8bd0", H:"#c96b6b", B:"#7fa650", D:"#d98a3d"}[g] || "#5b8bd0";
-  const larguraColB = 70, larguraColC = 90, larguraColF = 340;
+  const larguraColB = 80, larguraColC = 100, larguraColF = 380;
   const larguraTotal = larguraColB + larguraColC + larguraColF;
-  const alturaLinha = 34, alturaCabecalho = 76, alturaRodape = 70, margem = 20;
+  const alturaLinha = 42, alturaCabecalho = 90, alturaRodape = 80, margem = 24;
   const alturaCanvas = alturaCabecalho + (eff.length * alturaLinha) + alturaRodape + margem*2;
   const larguraCanvas = larguraTotal + margem*2;
 
   const canvas = document.createElement("canvas");
-  const escalaPx = 2; // desenha em resolução maior pra ficar nítido
+  const escalaPx = 5; // desenha em resolução maior pra ficar nítido mesmo depois da compressão do WhatsApp
   canvas.width = larguraCanvas * escalaPx;
   canvas.height = alturaCanvas * escalaPx;
   const ctx = canvas.getContext("2d");
@@ -668,37 +668,37 @@ function gerarImagemEscala(g, chave){
 
   // título
   ctx.fillStyle = corGrupo;
-  ctx.fillRect(margem, y, 34, 34);
+  ctx.fillRect(margem, y, 42, 42);
   ctx.fillStyle = "#fff";
-  ctx.font = "bold 20px Arial";
+  ctx.font = "bold 26px Arial";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillText(g, margem + 17, y + 18);
+  ctx.fillText(g, margem + 21, y + 22);
 
   ctx.fillStyle = "#e8e8ea";
-  ctx.font = "bold 18px Arial";
+  ctx.font = "bold 24px Arial";
   ctx.textAlign = "left";
-  ctx.fillText(`ESCALA ${g}`, margem + 46, y + 12);
+  ctx.fillText(`ESCALA ${g}`, margem + 54, y + 14);
   ctx.fillStyle = "#9aa0aa";
-  ctx.font = "12px Arial";
-  ctx.fillText(`Folga do grupo ${g} — ${new Date().toLocaleDateString("pt-BR")}`, margem + 46, y + 30);
+  ctx.font = "16px Arial";
+  ctx.fillText(`Folga do grupo ${g} — ${new Date().toLocaleDateString("pt-BR")}`, margem + 54, y + 36);
 
-  y += 50;
+  y += 64;
 
   // cabeçalho da tabela
   ctx.fillStyle = "#1e2229";
-  ctx.fillRect(margem, y, larguraTotal, 26);
+  ctx.fillRect(margem, y, larguraTotal, 32);
   ctx.fillStyle = "#e8e8ea";
-  ctx.font = "bold 12px Arial";
+  ctx.font = "bold 16px Arial";
   ctx.textBaseline = "middle";
   ctx.textAlign = "left";
-  ctx.fillText("Banca", margem + 8, y + 13);
-  ctx.fillText("Chapa", margem + larguraColB + 8, y + 13);
-  ctx.fillText("Fundidor", margem + larguraColB + larguraColC + 8, y + 13);
-  y += 26;
+  ctx.fillText("Banca", margem + 10, y + 16);
+  ctx.fillText("Chapa", margem + larguraColB + 10, y + 16);
+  ctx.fillText("Fundidor", margem + larguraColB + larguraColC + 10, y + 16);
+  y += 32;
 
   // linhas
-  ctx.font = "13px Arial";
+  ctx.font = "17px Arial";
   eff.forEach((r,idx)=>{
     const corFundo = idx % 2 === 0 ? "#171a21" : "#1a1e26";
     ctx.fillStyle = corFundo;
@@ -708,21 +708,136 @@ function gerarImagemEscala(g, chave){
     ctx.strokeRect(margem, y, larguraTotal, alturaLinha);
 
     ctx.fillStyle = r.cap === 0 ? "#9aa0aa" : "#e8e8ea";
-    ctx.fillText(r.banca, margem + 8, y + alturaLinha/2);
-    ctx.fillText(r.chapa || "-", margem + larguraColB + 8, y + alturaLinha/2);
-    const nomeExibido = r.nome.length > 30 ? r.nome.slice(0,29)+"…" : r.nome;
-    ctx.fillText(nomeExibido, margem + larguraColB + larguraColC + 8, y + alturaLinha/2);
+    ctx.fillText(r.banca, margem + 10, y + alturaLinha/2);
+    ctx.fillText(r.chapa || "-", margem + larguraColB + 10, y + alturaLinha/2);
+    const nomeExibido = r.nome.length > 32 ? r.nome.slice(0,31)+"…" : r.nome;
+    ctx.fillText(nomeExibido, margem + larguraColB + larguraColC + 10, y + alturaLinha/2);
     y += alturaLinha;
   });
 
-  y += 22;
-  ctx.font = "bold 14px Arial";
+  y += 28;
+  ctx.font = "bold 19px Arial";
   ctx.fillStyle = "#e8e8ea";
   ctx.fillText(`Bancas produzindo: ${produzindo}/21`, margem, y);
-  y += 22;
+  y += 28;
   ctx.fillText(`Total produzido: ${producao} un/dia`, margem, y);
 
   return canvas;
+}
+
+// Desenha a lista de ajudantes (agrupada por letra, respeitando o filtro ativo) num canvas
+function gerarImagemAjudantes(){
+  const grupos = ["F","H","B","D"].filter(g=>ajudanteFiltro.includes(g));
+  const corGrupo = {F:"#5b8bd0", H:"#c96b6b", B:"#7fa650", D:"#d98a3d"};
+  const larguraCanvas = 460, margem = 24;
+  const alturaLinha = 34, alturaGrupoHeader = 40, alturaCabecalho = 60, alturaRodape = 50;
+
+  let totalLinhas = 0;
+  const dados = grupos.map(g=>{
+    const nomes = ajudantesDoGrupo(g);
+    totalLinhas += nomes.length;
+    return {g, nomes};
+  });
+
+  const alturaCanvas = alturaCabecalho + dados.length*alturaGrupoHeader + totalLinhas*alturaLinha + alturaRodape + margem*2;
+
+  const canvas = document.createElement("canvas");
+  const escalaPx = 5;
+  canvas.width = larguraCanvas * escalaPx;
+  canvas.height = alturaCanvas * escalaPx;
+  const ctx = canvas.getContext("2d");
+  ctx.scale(escalaPx, escalaPx);
+
+  ctx.fillStyle = "#0f1115";
+  ctx.fillRect(0, 0, larguraCanvas, alturaCanvas);
+
+  let y = margem;
+  ctx.fillStyle = "#e8e8ea";
+  ctx.font = "bold 24px Arial";
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+  ctx.fillText("Lista de Ajudantes", margem, y + 12);
+  ctx.fillStyle = "#9aa0aa";
+  ctx.font = "16px Arial";
+  ctx.fillText(new Date().toLocaleDateString("pt-BR"), margem, y + 34);
+  y += 60;
+
+  dados.forEach(({g, nomes})=>{
+    ctx.fillStyle = corGrupo[g] || "#5b8bd0";
+    ctx.fillRect(margem, y, 30, 30);
+    ctx.fillStyle = "#fff";
+    ctx.font = "bold 18px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText(g, margem+15, y+15);
+    ctx.fillStyle = "#e8e8ea";
+    ctx.font = "bold 17px Arial";
+    ctx.textAlign = "left";
+    ctx.fillText(`Grupo ${g} (${nomes.length})`, margem+40, y+15);
+    y += 40;
+
+    ctx.font = "17px Arial";
+    nomes.forEach((nome,idx)=>{
+      ctx.fillStyle = idx%2===0 ? "#171a21" : "#1a1e26";
+      ctx.fillRect(margem, y, larguraCanvas-margem*2, alturaLinha);
+      ctx.fillStyle = "#e8e8ea";
+      ctx.fillText(nome, margem+10, y+alturaLinha/2);
+      y += alturaLinha;
+    });
+  });
+
+  y += 20;
+  const total = dados.reduce((a,d)=>a+d.nomes.length,0);
+  ctx.font = "bold 18px Arial";
+  ctx.fillStyle = "#e8e8ea";
+  ctx.fillText(`Total: ${total} ajudante(s)`, margem, y);
+
+  return canvas;
+}
+
+async function compartilharImagemAjudantes(){
+  const fb = document.getElementById("copy-feedback-ajudantes");
+  try{
+    const canvas = gerarImagemAjudantes();
+    const nomeArquivo = `lista_ajudantes.png`;
+    const dataUrl = canvas.toDataURL("image/png");
+    const blob = dataURLParaBlob(dataUrl);
+    const arquivo = new File([blob], nomeArquivo, {type:"image/png"});
+
+    if(navigator.share && navigator.canShare && navigator.canShare({files:[arquivo]})){
+      try{
+        await navigator.share({ files: [arquivo], title: "Lista de Ajudantes", text: "Lista de Ajudantes — GAROL" });
+        if(fb){
+          fb.textContent = "✅ Pronto pra compartilhar!";
+          setTimeout(()=>{ fb.textContent = ""; }, 2000);
+        }
+        return;
+      }catch(err){
+        if(err && err.name === "AbortError") return;
+        if(fb) fb.textContent = "⚠️ Não consegui abrir o compartilhamento (" + (err && err.name ? err.name : "erro") + ") — baixando a imagem normal.";
+      }
+    } else if(fb){
+      fb.textContent = "ℹ️ Esse navegador não suporta compartilhar imagem direto — baixando normal.";
+    }
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = nomeArquivo;
+    a.rel = "noopener";
+    a.style.display = "none";
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(()=>{
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 1500);
+    if(fb && !fb.textContent){
+      fb.textContent = `✅ ${nomeArquivo} baixado! Anexe manualmente no WhatsApp.`;
+    }
+  }catch(err){
+    if(fb) fb.textContent = "⚠️ Erro ao gerar/compartilhar a imagem: " + (err && err.message ? err.message : err);
+    else alert("Erro ao gerar/compartilhar a imagem: " + (err && err.message ? err.message : err));
+  }
 }
 
 function baixarImagemEscala(g, chave){
@@ -925,13 +1040,7 @@ function escalaHTML(g, chave, dataInfo){
     <div class="kpi"><div class="n">${ajTrab.length}</div><div class="l">ajudantes trabalhando</div></div>
   </div>`;
 
-  html += `<button class="whatsapp-btn" onclick="copiarWhatsApp('${g}','${chave}')">📋 Copiar escala para WhatsApp</button>
-  <span id="copy-feedback-${chave}" class="copy-feedback"></span>
-  <button class="print-btn" onclick="baixarPDF('${g}','${chave}')">📄 Baixar PDF (Banca, Chapa, Fundidor, Total)</button>
-  <button class="whatsapp-btn" onclick="compartilharImagemEscala('${g}','${chave}')">🖼️ Compartilhar imagem (WhatsApp)</button>
-  <button class="print-btn" onclick="baixarImagemEscala('${g}','${chave}')">🖼️ Baixar imagem (PNG)</button>
-  <button id="btn-undo-${chave}" class="undo-btn" onclick="desfazerUltimaEdicao('${chave}')">↩️ Desfazer</button>
-  <button id="btn-reset-${chave}" class="reset-btn" onclick="resetEscala('${g}','${chave}')">Restaurar só essa aba</button>`;
+  html += botoesEscalaHTML(g, chave);
 
   html += `<div class="cols">
     <div class="col folga">
@@ -1046,19 +1155,16 @@ function resumoHTML(){
 
 function reordenarAbasHTML(){
   let html = `<h2 style="margin-top:16px;">🔀 Reordenar abas</h2>
-  <p style="color:var(--muted);font-size:.7rem;margin:0 0 8px;">Muda a ordem em que as abas aparecem lá em cima. Fica salvo neste dispositivo.</p>`;
-  html += `<div class="table-wrap"><table><tbody>`;
+  <p style="color:var(--muted);font-size:.7rem;margin:0 0 8px;">Segure a alça ⠿⠿ e arraste pra cima/baixo pra mudar a ordem das abas. Fica salvo neste dispositivo.</p>`;
+  html += `<div id="lista-reordenar-abas" data-tipo="abas">`;
   secoesOrdenadas().forEach((s,idx)=>{
-    html += `<tr>
-      <td style="width:2rem;color:var(--muted);">${idx+1}º</td>
-      <td>${s.label}</td>
-      <td style="text-align:right;white-space:nowrap;">
-        <button class="print-btn" style="margin:0 2px 0 0;padding:4px 10px;" ${idx===0?"disabled":""} onclick="moverAba('${s.id}',-1)">▲</button>
-        <button class="print-btn" style="margin:0;padding:4px 10px;" ${idx===secoesOrdenadas().length-1?"disabled":""} onclick="moverAba('${s.id}',1)">▼</button>
-      </td>
-    </tr>`;
+    html += `<div class="botao-arrastavel" data-btn-id="${s.id}" style="display:flex;align-items:center;gap:4px;margin-bottom:4px;background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:2px 8px;">
+      <span class="alca-arrastar" data-btn-id="${s.id}" style="cursor:grab;color:var(--muted);padding:8px 8px;touch-action:none;user-select:none;font-size:1rem;">⠿⠿</span>
+      <span style="color:var(--muted);width:1.8rem;">${idx+1}º</span>
+      <span style="flex:1;font-size:.8rem;">${s.label}</span>
+    </div>`;
   });
-  html += `</tbody></table></div>`;
+  html += `</div>`;
   html += `<button class="undo-btn" style="margin-top:6px;" onclick="restaurarOrdemAbasPadrao()">Restaurar ordem padrão</button>`;
   return html;
 }
@@ -1646,7 +1752,7 @@ function bancoHorasHTML(){
 // Ajudantes cadastrados no Banco de Dados pra um grupo — lido ao vivo, então
 // qualquer mudança lá (adicionar, trocar tipo/grupo, remover) já reflete aqui.
 function ajudantesDoBancoDados(g){
-  return BANCO_DADOS_LISTA.filter(p=>(p.tipo==="Ajudante" || p.tipo==="Fundidor/Ajudante") && p.grupo===g).map(p=>p.nome);
+  return BANCO_DADOS_LISTA.filter(p=>(p.tipo==="Ajudante" || p.tipo==="Fundidor/Ajudante" || p.tipo==="Fundidor em Treinamento") && p.grupo===g).map(p=>p.nome);
 }
 
 function ajudantesDoGrupo(g){
@@ -1716,7 +1822,7 @@ function ajudantesListaHTML(){
     <button class="add-btn" onclick="adicionarAjudanteExtra()">+ Adicionar</button>
   </div>`;
 
-  html += `<button class="whatsapp-btn" onclick="copiarWhatsAppAjudantes()">📋 Copiar lista para WhatsApp</button>
+  html += `<button class="whatsapp-btn" onclick="compartilharImagemAjudantes()">🖼️ Compartilhar imagem (WhatsApp)</button>
   <span id="copy-feedback-ajudantes" class="copy-feedback"></span>`;
 
   if(grupos.length === 0 && gruposComExtraForaDoFiltro.length === 0){
@@ -2882,7 +2988,7 @@ function bancoDadosHTML(){
       if(grupoOrdemA !== grupoOrdemB) return dir*(grupoOrdemA - grupoOrdemB);
       if(ba !== bb) return dir*ba.localeCompare(bb, undefined, {numeric:true});
     }
-    const ordemTipo = {"Fundidor":0, "Fundidor/Ajudante":1, "Ajudante":2};
+    const ordemTipo = {"Fundidor":0, "Fundidor/Ajudante":1, "Fundidor em Treinamento":2, "Ajudante":3};
     if(a.tipo !== b.tipo) return (ordemTipo[a.tipo]??1) - (ordemTipo[b.tipo]??1);
     return a.nome.localeCompare(b.nome);
   });
@@ -2899,6 +3005,7 @@ function bancoDadosHTML(){
       <option value="Fundidor">Fundidor</option>
       <option value="Ajudante">Ajudante</option>
       <option value="Fundidor/Ajudante">Fundidor/Ajudante</option>
+      <option value="Fundidor em Treinamento">Fundidor em Treinamento</option>
     </select>
     <select id="bd-novo-grupo">
       <option value="F">F</option>
@@ -2918,7 +3025,7 @@ function bancoDadosHTML(){
   const contagem = {F:{Fundidor:0,Ajudante:0}, H:{Fundidor:0,Ajudante:0}, B:{Fundidor:0,Ajudante:0}, D:{Fundidor:0,Ajudante:0}};
   BANCO_DADOS_LISTA.forEach(p=>{
     if(!contagem[p.grupo]) return;
-    if(p.tipo === "Fundidor/Ajudante"){
+    if(p.tipo === "Fundidor/Ajudante" || p.tipo === "Fundidor em Treinamento"){
       contagem[p.grupo].Ajudante++;
     } else if(contagem[p.grupo][p.tipo] !== undefined){
       contagem[p.grupo][p.tipo]++;
@@ -2954,6 +3061,7 @@ function bancoDadosHTML(){
           <option value="Fundidor" ${p.tipo==="Fundidor"?"selected":""}>Fundidor</option>
           <option value="Ajudante" ${p.tipo==="Ajudante"?"selected":""}>Ajudante</option>
           <option value="Fundidor/Ajudante" ${p.tipo==="Fundidor/Ajudante"?"selected":""}>Fundidor/Ajudante</option>
+          <option value="Fundidor em Treinamento" ${p.tipo==="Fundidor em Treinamento"?"selected":""}>Fundidor em Treinamento</option>
         </select>
       </td>
       <td>${p.nome}</td>
@@ -2979,7 +3087,22 @@ function gerarSecoesEscalasDatadas(){
   });
 }
 
+// Lista todas as abas como botões — funciona como um menu/índice geral do app
+function menuHTML(){
+  let html = `<h2>📑 Menu — Todas as abas</h2>`;
+  html += `<p style="color:var(--muted);font-size:.72rem;margin:0 0 10px;">Toque em qualquer botão abaixo pra ir direto pra aquela aba.</p>`;
+  SECOES.forEach(s=>{
+    if(s.id === "menu") return;
+    const isEscalaDatada = /^[FHBD]_\d{8}$/.test(s.id);
+    const cor = isEscalaDatada ? s.label[0] : null;
+    const tagCor = cor ? `<span class="tag tag-${cor}" style="margin-right:6px;">${cor}</span>` : "";
+    html += `<button class="whatsapp-btn" style="text-align:left;display:flex;align-items:center;" onclick="showSection('${s.id}')">${tagCor}${s.label}</button>`;
+  });
+  return html;
+}
+
 let SECOES = [
+  {id:"menu", label:"📑 Menu", render:menuHTML},
   ...gerarSecoesEscalasDatadas(),
   {id:"resumo", label:"Resumo", render:resumoHTML},
   {id:"calendario", label:"Calendário de Folgas", render:calendarioFolgasHTML},
@@ -3035,17 +3158,133 @@ function salvarOrdemAbas(){
   try{ localStorage.setItem("ordemAbas", JSON.stringify(ORDEM_ABAS)); }catch(e){}
 }
 
-function secoesOrdenadas(){
-  return ORDEM_ABAS.map(id => SECOES.find(s=>s.id===id)).filter(Boolean);
+// ---- Ordem dos botões de ação da escala (personalizável, arrastar-e-soltar) ----
+const BOTOES_ESCALA_PADRAO = ["img-compartilhar","desfazer","restaurar"];
+let ORDEM_BOTOES_ESCALA = BOTOES_ESCALA_PADRAO.slice();
+try{
+  const salvoBtn = JSON.parse(localStorage.getItem("ordemBotoesEscala") || "null");
+  if(Array.isArray(salvoBtn) && salvoBtn.length){
+    const validosBtn = salvoBtn.filter(id => BOTOES_ESCALA_PADRAO.includes(id));
+    const faltandoBtn = BOTOES_ESCALA_PADRAO.filter(id => !validosBtn.includes(id));
+    ORDEM_BOTOES_ESCALA = validosBtn.concat(faltandoBtn);
+  }
+}catch(e){}
+
+function salvarOrdemBotoesEscala(){
+  try{ localStorage.setItem("ordemBotoesEscala", JSON.stringify(ORDEM_BOTOES_ESCALA)); }catch(e){}
 }
 
-function moverAba(id, delta){
-  const idx = ORDEM_ABAS.indexOf(id);
-  const novoIdx = idx + delta;
-  if(idx===-1 || novoIdx < 0 || novoIdx >= ORDEM_ABAS.length) return;
-  [ORDEM_ABAS[idx], ORDEM_ABAS[novoIdx]] = [ORDEM_ABAS[novoIdx], ORDEM_ABAS[idx]];
-  salvarOrdemAbas();
-  reconstruirNav();
+function definicaoBotoesEscala(g, chave){
+  return {
+    "whatsapp": {label:"📋 Copiar escala para WhatsApp", cls:"whatsapp-btn", onclick:`copiarWhatsApp('${g}','${chave}')`},
+    "pdf": {label:"📄 Baixar PDF (Banca, Chapa, Fundidor, Total)", cls:"print-btn", onclick:`baixarPDF('${g}','${chave}')`},
+    "img-compartilhar": {label:"🖼️ Compartilhar imagem (WhatsApp)", cls:"whatsapp-btn", onclick:`compartilharImagemEscala('${g}','${chave}')`},
+    "img-baixar": {label:"🖼️ Baixar imagem (PNG)", cls:"print-btn", onclick:`baixarImagemEscala('${g}','${chave}')`},
+    "desfazer": {label:"↩️ Desfazer", id:`btn-undo-${chave}`, cls:"undo-btn", onclick:`desfazerUltimaEdicao('${chave}')`},
+    "restaurar": {label:"Restaurar só essa aba", id:`btn-reset-${chave}`, cls:"reset-btn", onclick:`resetEscala('${g}','${chave}')`}
+  };
+}
+
+// Monta o painel colapsável "Visão Geral" com os botões de ação, na ordem salva
+function botoesEscalaHTML(g, chave){
+  const defs = definicaoBotoesEscala(g, chave);
+  const painelId = "acoes-"+chave;
+  let html = `<div class="painel-acoes">
+    <button class="reset-btn" style="width:100%;text-align:left;margin-bottom:6px;" onclick="toggleAcoesEscala('${painelId}')">📂 Visão Geral (ações) <span id="${painelId}-seta">▶</span></button>
+    <div id="${painelId}" style="display:none;margin-bottom:8px;">`;
+  ORDEM_BOTOES_ESCALA.forEach(id=>{
+    const def = defs[id];
+    if(!def) return;
+    html += `<div class="botao-arrastavel" data-btn-id="${id}" style="display:flex;align-items:center;gap:4px;margin-bottom:4px;">
+      <span class="alca-arrastar" data-btn-id="${id}" style="cursor:grab;color:var(--muted);padding:8px 8px;touch-action:none;user-select:none;font-size:1rem;">⠿⠿</span>
+      <button id="${def.id||''}" class="${def.cls}" style="flex:1;margin:0;" onclick="${def.onclick}">${def.label}</button>
+    </div>`;
+  });
+  html += `</div>
+    <span id="copy-feedback-${chave}" class="copy-feedback"></span>
+  </div>`;
+  return html;
+}
+
+function toggleAcoesEscala(painelId){
+  const painel = document.getElementById(painelId);
+  const seta = document.getElementById(painelId+"-seta");
+  if(!painel) return;
+  const abrindo = painel.style.display === "none";
+  painel.style.display = abrindo ? "block" : "none";
+  if(seta) seta.textContent = abrindo ? "▼" : "▶";
+}
+
+// Arrastar-e-soltar pra reordenar os botões — usa Pointer Events (funciona com
+// dedo no celular e com mouse no PC, diferente do drag-and-drop HTML5 tradicional)
+let ARRASTO_BOTAO_ATUAL = null;
+
+function iniciarArrastoBotao(e){
+  const alca = e.target.closest(".alca-arrastar");
+  if(!alca) return;
+  const linha = alca.closest(".botao-arrastavel");
+  if(!linha) return;
+  e.preventDefault();
+  try{ alca.setPointerCapture(e.pointerId); }catch(err){}
+  ARRASTO_BOTAO_ATUAL = { linha, container: linha.parentElement, pointerId: e.pointerId };
+  linha.style.opacity = "0.5";
+}
+
+function moverArrastoBotao(e){
+  if(!ARRASTO_BOTAO_ATUAL || e.pointerId !== ARRASTO_BOTAO_ATUAL.pointerId) return;
+  e.preventDefault();
+  const { linha, container } = ARRASTO_BOTAO_ATUAL;
+  const y = e.clientY;
+  const irmaos = [...container.querySelectorAll(".botao-arrastavel")].filter(el=>el!==linha);
+  let posicionado = false;
+  for(const irmao of irmaos){
+    const rect = irmao.getBoundingClientRect();
+    const meio = rect.top + rect.height/2;
+    if(y < meio){
+      container.insertBefore(linha, irmao);
+      posicionado = true;
+      break;
+    }
+  }
+  if(!posicionado) container.appendChild(linha);
+}
+
+function terminarArrastoBotao(e){
+  if(!ARRASTO_BOTAO_ATUAL || e.pointerId !== ARRASTO_BOTAO_ATUAL.pointerId) return;
+  const { linha, container } = ARRASTO_BOTAO_ATUAL;
+  linha.style.opacity = "";
+  const novaOrdem = [...container.querySelectorAll(".botao-arrastavel")].map(el=>el.dataset.btnId);
+  ARRASTO_BOTAO_ATUAL = null;
+
+  if(container.dataset.tipo === "abas"){
+    ORDEM_ABAS = novaOrdem;
+    salvarOrdemAbas();
+    reconstruirNav();
+    return;
+  }
+
+  ORDEM_BOTOES_ESCALA = novaOrdem;
+  salvarOrdemBotoesEscala();
+
+  const painelId = container.id;
+  renderAll();
+  showSection(activeTab);
+  // reabre o painel de novo, já que o renderAll() recriou tudo fechado
+  const painelNovo = document.getElementById(painelId);
+  const setaNova = document.getElementById(painelId+"-seta");
+  if(painelNovo) painelNovo.style.display = "block";
+  if(setaNova) setaNova.textContent = "▼";
+}
+
+document.addEventListener("pointerdown", iniciarArrastoBotao);
+document.addEventListener("pointermove", moverArrastoBotao);
+document.addEventListener("pointerup", terminarArrastoBotao);
+document.addEventListener("pointercancel", terminarArrastoBotao);
+
+
+
+function secoesOrdenadas(){
+  return ORDEM_ABAS.map(id => SECOES.find(s=>s.id===id)).filter(Boolean);
 }
 
 function restaurarOrdemAbasPadrao(){
@@ -3092,7 +3331,10 @@ function atualizarSeDiaVirou(){
     // reconstruídas quando o dia muda, senão ficam com data errada
     const semEscalasAntigas = SECOES.filter(s => !/^[FHBD]_\d{8}$/.test(s.id));
     const novasEscalas = gerarSecoesEscalasDatadas();
-    SECOES = [...novasEscalas, ...semEscalasAntigas];
+    const idxMenu = semEscalasAntigas.findIndex(s=>s.id==="menu");
+    SECOES = idxMenu >= 0
+      ? [...semEscalasAntigas.slice(0, idxMenu+1), ...novasEscalas, ...semEscalasAntigas.slice(idxMenu+1)]
+      : [...novasEscalas, ...semEscalasAntigas];
     reconstruirNav();
     return true;
   }
