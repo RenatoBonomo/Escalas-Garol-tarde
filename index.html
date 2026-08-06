@@ -108,29 +108,10 @@
 
 <nav id="tabs"></nav>
 <main id="main"></main>
-<script type="application/json" id="backup-embutido">{}</script>
 <p class="chapa-hint" style="padding:0 24px;">✏️ Toque na chapa de qualquer banca (mesmo parada) para editar — o nome do fundidor responsável é ajustado automaticamente pela chapa digitada. Salvo neste dispositivo.</p>
 <footer>Gerado automaticamente a partir da planilha escalas_producao.xlsx</footer>
 
 <script>
-// ---- Backup embutido no próprio arquivo: se essa cópia do HTML foi salva com dados
-// dentro dela (via "Gerar HTML com backup embutido") e este navegador ainda não tem
-// nada salvo, os dados embutidos são carregados automaticamente antes de tudo o resto.
-(function carregarBackupEmbutidoNaAbertura(){
-  try{
-    const tag = document.getElementById("backup-embutido");
-    if(!tag) return;
-    const dados = JSON.parse(tag.textContent || "{}");
-    if(!dados || Object.keys(dados).length === 0) return;
-    // só carrega automático se este navegador ainda não tem Dados Originais salvos
-    // (evita sobrescrever silenciosamente edições já feitas neste dispositivo)
-    if(localStorage.getItem("fixoData")) return;
-    Object.keys(dados).forEach(k=>{
-      try{ localStorage.setItem(k, dados[k]); }catch(e){}
-    });
-  }catch(e){}
-})();
-
 const AJ = {
   F: ["Leandro de Freitas Simoes","Rodrigo Carmo Barros","Carlos Henrique de Souza Sobrinho"],
   H: ["Renato Santos Ferreira","Nalberth Junior Raulino Santana","Carlos Eduardo Sampaio"],
@@ -779,8 +760,16 @@ function gerarImagemAjudantes(){
     nomes.forEach((nome,idx)=>{
       ctx.fillStyle = idx%2===0 ? "#171a21" : "#1a1e26";
       ctx.fillRect(margem, y, larguraCanvas-margem*2, alturaLinha);
+      const ehFT = BANCO_DADOS_LISTA.some(p=>p.tipo==="Fundidor em Treinamento" && normalizaNome(p.nome)===normalizaNome(nome));
       ctx.fillStyle = "#e8e8ea";
+      ctx.font = "17px Arial";
       ctx.fillText(nome, margem+10, y+alturaLinha/2);
+      if(ehFT){
+        const largNome = ctx.measureText(nome).width;
+        ctx.fillStyle = "#9aa0aa";
+        ctx.font = "italic 14px Arial";
+        ctx.fillText(" (Fundidor em Treinamento)", margem+10+largNome, y+alturaLinha/2);
+      }
       y += alturaLinha;
     });
   });
@@ -1056,11 +1045,11 @@ function escalaHTML(g, chave, dataInfo){
   html += `<div class="cols">
     <div class="col folga">
       <h3>🔴 Ajudantes de folga</h3>
-      <ul>${ajFolga.map(n=>`<li>${n}${marcadorAusenciaPorNome(n, g, dataAlvo)}</li>`).join("")}</ul>
+      <ul>${ajFolga.map(n=>`<li>${n}${marcadorFTPorNome(n)}${marcadorAusenciaPorNome(n, g, dataAlvo)}</li>`).join("")}</ul>
     </div>
     <div class="col trab">
       <h3>🔵 Ajudantes trabalhando (${ajTrab.length})</h3>
-      <ul>${ajTrab.map(n=>`<li>${n}${marcadorAusenciaPorNome(n, g, dataAlvo)}</li>`).join("")}</ul>
+      <ul>${ajTrab.map(n=>`<li>${n}${marcadorFTPorNome(n)}${marcadorAusenciaPorNome(n, g, dataAlvo)}</li>`).join("")}</ul>
     </div>
   </div>`;
 
@@ -1103,11 +1092,12 @@ function resumoHTML(){
   html += `<button class="whatsapp-btn" onclick="copiarWhatsAppResumo()">📋 Copiar resumo para WhatsApp</button>
   <span id="copy-feedback-resumo" class="copy-feedback"></span>`;
   html += `<div style="display:flex;gap:6px;margin-bottom:8px;">
-    <button class="whatsapp-btn" style="margin:0;flex:1;" onclick="gerarHtmlComBackupEmbutido()">📦 Gerar HTML com backup embutido</button>
-    <button class="print-btn" style="margin:0;flex:1;" onclick="carregarBackupEmbutidoManual()">📥 Carregar backup embutido</button>
+    <button class="whatsapp-btn" style="margin:0;flex:1;" onclick="baixarBackupJSON()">🗂️ Baixar backup (.json)</button>
+    <button class="print-btn" style="margin:0;flex:1;" onclick="document.getElementById('input-backup-json').click()">📤 Carregar backup (.json)</button>
+    <input type="file" id="input-backup-json" accept=".json" onchange="carregarBackupJSON(event)" style="display:none;">
   </div>
-  <span id="copy-feedback-embutido" class="copy-feedback"></span>
-  <p style="color:var(--muted);font-size:.68rem;margin:0 0 10px;">📦 Gera uma cópia deste app com os dados salvos AQUI DENTRO do próprio arquivo HTML — suba esse arquivo pro GitHub (substituindo o antigo) e os dados vão junto, sem precisar de backup separado. "Carregar backup embutido" puxa de volta os dados que estiverem guardados dentro deste arquivo específico.</p>`;
+  <span id="copy-feedback-json" class="copy-feedback"></span>
+  <p style="color:var(--muted);font-size:.68rem;margin:0 0 10px;">🗂️ Baixa só um arquivo .json pequeno com os dados salvos neste dispositivo. "Carregar backup (.json)" traz esses dados de volta pra qualquer navegador.</p>`;
   html += `<div class="table-wrap"><table><thead><tr><th>Escala</th><th>Paradas</th><th>Produzindo</th><th>Produção (un/dia)</th></tr></thead><tbody>`;
   ["F","H","B","D"].forEach(g=>{
     const eff = effectiveRows(g);
@@ -1457,6 +1447,14 @@ function marcadorAusenciaPorNome(nome, g, dataAlvo){
   return marcadorDebitoPorNome(nome, g, dataAlvo);
 }
 
+// Marca "(Fundidor em Treinamento)" ao lado de quem tiver esse tipo no Banco de Dados
+function marcadorFTPorNome(nome){
+  if(!nome) return "";
+  const alvo = normalizaNome(nome);
+  const achado = BANCO_DADOS_LISTA.find(p => p.tipo === "Fundidor em Treinamento" && normalizaNome(p.nome) === alvo);
+  return achado ? ` <span style="color:var(--muted);font-style:italic;">(Fundidor em Treinamento)</span>` : "";
+}
+
 // Força o recálculo de tudo que depende da data de hoje (atestados nas escalas etc.)
 function recalcularAtestadosNasEscalas(){
   ultimoDiaRenderizado = hojeSemHora().getTime();
@@ -1797,10 +1795,13 @@ function ajudantesListaHTML(){
 
   html += `<div class="kpis">`;
   grupos.forEach(g=>{
-    html += `<div class="kpi"><div class="n">${ajudantesDoGrupo(g).length}</div><div class="l">Ajudantes ${g}</div></div>`;
+    const ftCount = BANCO_DADOS_LISTA.filter(p=>p.tipo==="Fundidor em Treinamento" && p.grupo===g).length;
+    const ajudanteCount = ajudantesDoGrupo(g).length - ftCount;
+    html += `<div class="kpi"><div class="n">${ajudanteCount}</div><div class="l">Ajudantes ${g}${ftCount>0 ? ` (+${ftCount} FT)` : ""}</div></div>`;
   });
-  const total = grupos.reduce((a,g)=>a+ajudantesDoGrupo(g).length,0);
-  html += `<div class="kpi"><div class="n">${total}</div><div class="l">Total selecionado</div></div>`;
+  const totalFT = grupos.reduce((a,g)=>a+BANCO_DADOS_LISTA.filter(p=>p.tipo==="Fundidor em Treinamento" && p.grupo===g).length,0);
+  const total = grupos.reduce((a,g)=>a+ajudantesDoGrupo(g).length,0) - totalFT;
+  html += `<div class="kpi"><div class="n">${total}</div><div class="l">Total selecionado${totalFT>0 ? ` (+${totalFT} FT)` : ""}</div></div>`;
   html += `</div>`;
 
   const sugestoes = [];
@@ -1838,14 +1839,14 @@ function ajudantesListaHTML(){
     nomesOriginais.forEach(nome=>{
       html += `<tr class="ajrow-${g}">
         <td>${primeiro ? `<span class="tag tag-${g}">${g}</span>` : ""}</td>
-        <td>${nome}${marcadorAusenciaPorNome(nome, g)}</td>
+        <td>${nome}${marcadorFTPorNome(nome)}${marcadorAusenciaPorNome(nome, g)}</td>
       </tr>`;
       primeiro = false;
     });
     nomesExtras.forEach((nome,idx)=>{
       html += `<tr class="ajrow-${g}">
         <td>${primeiro ? `<span class="tag tag-${g}">${g}</span>` : ""}</td>
-        <td>${nome} <span class="tag-extra">extra</span> <span class="del-btn" onclick="removerAjudanteExtra('${g}',${idx})">✕</span>${marcadorAusenciaPorNome(nome, g)}</td>
+        <td>${nome} <span class="tag-extra">extra</span> <span class="del-btn" onclick="removerAjudanteExtra('${g}',${idx})">✕</span>${marcadorFTPorNome(nome)}${marcadorAusenciaPorNome(nome, g)}</td>
       </tr>`;
       primeiro = false;
     });
@@ -3028,25 +3029,28 @@ function bancoDadosHTML(){
   <button class="reset-btn" onclick="restaurarBancoDados()">Restaurar a Aba</button>
   <button id="btn-bd-salvar-padrao" class="undo-btn" style="margin-top:6px;" onclick="salvarBancoDadosComoOriginal()">⭐ Salvar dados</button>`;
 
-  const contagem = {F:{Fundidor:0,Ajudante:0}, H:{Fundidor:0,Ajudante:0}, B:{Fundidor:0,Ajudante:0}, D:{Fundidor:0,Ajudante:0}};
+  const contagem = {F:{Fundidor:0,Ajudante:0,FT:0}, H:{Fundidor:0,Ajudante:0,FT:0}, B:{Fundidor:0,Ajudante:0,FT:0}, D:{Fundidor:0,Ajudante:0,FT:0}};
   BANCO_DADOS_LISTA.forEach(p=>{
     if(!contagem[p.grupo]) return;
-    if(p.tipo === "Fundidor/Ajudante" || p.tipo === "Fundidor em Treinamento"){
+    if(p.tipo === "Fundidor em Treinamento"){
+      contagem[p.grupo].FT++;
+    } else if(p.tipo === "Fundidor/Ajudante"){
       contagem[p.grupo].Ajudante++;
     } else if(contagem[p.grupo][p.tipo] !== undefined){
       contagem[p.grupo][p.tipo]++;
     }
   });
-  let totalF=0, totalAj=0;
+  let totalF=0, totalAj=0, totalFT=0;
   html += `<div class="kpis">`;
   ["F","H","B","D"].forEach(g=>{
-    const f = contagem[g].Fundidor, a = contagem[g].Ajudante;
-    totalF += f; totalAj += a;
-    html += `<div class="kpi"><div class="n">${f+a}</div><div class="l">${g}: ${f} fund. + ${a} aj.</div></div>`;
+    const f = contagem[g].Fundidor, a = contagem[g].Ajudante, ft = contagem[g].FT;
+    totalF += f; totalAj += a; totalFT += ft;
+    html += `<div class="kpi"><div class="n">${f+a+ft}</div><div class="l">${g}: ${f} fund. + ${a} aj.${ft>0 ? ` + ${ft} FT` : ""}</div></div>`;
   });
   html += `<div class="kpi"><div class="n">${totalF}</div><div class="l">Total Fundidores</div></div>
     <div class="kpi"><div class="n">${totalAj}</div><div class="l">Total Ajudantes</div></div>
-    <div class="kpi"><div class="n">${totalF+totalAj}</div><div class="l">Total Geral</div></div>
+    ${totalFT>0 ? `<div class="kpi"><div class="n">${totalFT}</div><div class="l">Total FT (em treinamento)</div></div>` : ""}
+    <div class="kpi"><div class="n">${totalF+totalAj+totalFT}</div><div class="l">Total Geral</div></div>
   </div>`;
 
   html += `<div class="table-wrap"><table><thead><tr><th onclick="bdOrdenarPor('grupo')" style="cursor:pointer;">Grupo${seta("grupo")}</th><th>Chapa</th><th onclick="bdOrdenarPor('banca')" style="cursor:pointer;">Banca(s)${seta("banca")}</th><th>Tipo</th><th>Nome</th><th>Telefone</th><th></th></tr></thead><tbody>`;
@@ -3735,11 +3739,9 @@ const CHAVES_BACKUP = [
   "atestados","ordemAbas","bancoHoras"
 ];
 
-// Gera uma cópia completa deste app (mesmo HTML) com os dados atuais gravados
-// dentro da tag oculta #backup-embutido — assim, ao subir esse arquivo pro GitHub,
-// os dados viajam junto dentro do próprio HTML, sem precisar de arquivo separado.
-function gerarHtmlComBackupEmbutido(){
-  const fb = document.getElementById("copy-feedback-embutido");
+// Baixa só um .json com os dados salvos neste dispositivo (sem o app inteiro junto)
+function baixarBackupJSON(){
+  const fb = document.getElementById("copy-feedback-json");
   const dados = {};
   let algumDado = false;
   CHAVES_BACKUP.forEach(k=>{
@@ -3748,97 +3750,71 @@ function gerarHtmlComBackupEmbutido(){
   });
 
   if(!algumDado){
-    if(fb) fb.textContent = "⚠️ Não há nada salvo neste dispositivo ainda pra embutir.";
+    if(fb) fb.textContent = "⚠️ Não há nada salvo neste dispositivo ainda pra fazer backup.";
     return;
   }
 
+  const dataStr = new Date().toISOString().slice(0,10);
+  const nomeArquivo = `backup_escalas_${dataStr}.json`;
+  const conteudo = JSON.stringify(dados, null, 2);
+
   try{
-    const tag = document.getElementById("backup-embutido");
-    const tagAnterior = tag ? tag.textContent : null;
-    if(tag) tag.textContent = JSON.stringify(dados);
-
-    const conteudoHtml = "<!DOCTYPE html>\n" + document.documentElement.outerHTML;
-
-    // devolve a tag ao estado anterior na página aberta agora (não precisa carregar o próprio backup nela mesma)
-    if(tag && tagAnterior !== null) tag.textContent = tagAnterior;
-
-    const dataStr = new Date().toISOString().slice(0,10);
-    const nomeArquivo = `index.html`;
-
-    function baixarPeloMetodoTradicional(){
-      const blob = new Blob([conteudoHtml], {type:"text/html"});
-      if(navigator.msSaveBlob){
-        navigator.msSaveBlob(blob, nomeArquivo);
-      } else {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = nomeArquivo;
-        a.rel = "noopener";
-        a.style.display = "none";
-        document.body.appendChild(a);
-        a.click();
-        setTimeout(()=>{
-          document.body.removeChild(a);
-          URL.revokeObjectURL(url);
-        }, 1500);
-      }
-      if(fb) fb.textContent = `✅ ${nomeArquivo} gerado com os dados embutidos (${dataStr}) — suba esse arquivo pro GitHub no lugar do antigo.`;
+    const blob = new Blob([conteudo], {type:"application/json"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = nomeArquivo;
+    a.rel = "noopener";
+    a.style.display = "none";
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(()=>{
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 1500);
+    if(fb){
+      fb.textContent = `✅ ${nomeArquivo} baixado!`;
+      setTimeout(()=>{ fb.textContent = ""; }, 2500);
     }
-
-    if(window.showSaveFilePicker){
-      (async ()=>{
-        try{
-          const handle = await window.showSaveFilePicker({
-            suggestedName: nomeArquivo,
-            types: [{ description: "Página HTML", accept: {"text/html": [".html"]} }]
-          });
-          const writable = await handle.createWritable();
-          await writable.write(conteudoHtml);
-          await writable.close();
-          if(fb) fb.textContent = `✅ ${nomeArquivo} salvo com os dados embutidos (${dataStr}).`;
-        }catch(err){
-          if(err && err.name === "AbortError") return;
-          baixarPeloMetodoTradicional();
-        }
-      })();
-      return;
-    }
-
-    baixarPeloMetodoTradicional();
   }catch(err){
     if(fb) fb.textContent = "⚠️ Não consegui gerar o arquivo. Erro: " + (err && err.message ? err.message : err);
   }
 }
 
-// Carrega manualmente os dados que estiverem guardados na tag oculta #backup-embutido
-// deste arquivo específico — útil quando o navegador já tem outros dados salvos e
-// por isso o carregamento automático na abertura não rodou sozinho.
-function carregarBackupEmbutidoManual(){
-  const fb = document.getElementById("copy-feedback-embutido");
-  const tag = document.getElementById("backup-embutido");
-  let dados;
-  try{
-    dados = JSON.parse(tag ? (tag.textContent || "{}") : "{}");
-  }catch(err){
-    if(fb) fb.textContent = "⚠️ O backup embutido neste arquivo está corrompido.";
-    return;
-  }
-  if(!dados || Object.keys(dados).length === 0){
-    if(fb) fb.textContent = "⚠️ Este arquivo não tem nenhum backup embutido nele.";
-    return;
-  }
-  if(!confirm("Isso vai substituir os dados salvos neste dispositivo pelos dados embutidos neste arquivo HTML. Continuar?")){
-    return;
-  }
-  let importados = 0;
-  Object.keys(dados).forEach(k=>{
-    if(CHAVES_BACKUP.includes(k)){
-      try{ localStorage.setItem(k, dados[k]); importados++; }catch(err){}
+// Lê um .json de backup e restaura os dados neste dispositivo
+function carregarBackupJSON(event){
+  const file = event.target.files[0];
+  if(!file) return;
+  const fb = document.getElementById("copy-feedback-json");
+
+  const reader = new FileReader();
+  reader.onload = function(e){
+    let dados;
+    try{
+      dados = JSON.parse(e.target.result);
+    }catch(err){
+      if(fb) fb.textContent = "⚠️ Esse arquivo não é um backup .json válido.";
+      event.target.value = "";
+      return;
     }
-  });
-  alert(`${importados} item(ns) importado(s) do backup embutido! A página vai recarregar agora.`);
-  location.reload();
+    if(!confirm("Isso vai substituir os dados salvos neste dispositivo pelos dados desse backup. Continuar?")){
+      event.target.value = "";
+      return;
+    }
+    let importados = 0;
+    Object.keys(dados).forEach(k=>{
+      if(CHAVES_BACKUP.includes(k)){
+        try{ localStorage.setItem(k, dados[k]); importados++; }catch(err){}
+      }
+    });
+    alert(`${importados} item(ns) importado(s)! A página vai recarregar agora.`);
+    location.reload();
+  };
+  reader.onerror = function(){
+    if(fb) fb.textContent = "⚠️ Não consegui ler o arquivo.";
+  };
+  reader.readAsText(file);
+  event.target.value = "";
 }
 
 // Corrige chapa/nome em Dados Originais (FIXO_DATA/FOLGUISTA_DATA) usando o cadastro
