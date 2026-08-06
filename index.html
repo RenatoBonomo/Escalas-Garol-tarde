@@ -1966,7 +1966,7 @@ function dadosOriginaisHTML(){
   html += `<button class="whatsapp-btn" onclick="aplicarDadosOriginais()" style="background:#1f3d2b;color:#6fdc8c;border-color:#2f6b45;">✅ Aplicar alterações e refazer escalas</button>`;
   html += `<button class="reset-btn" style="margin-top:6px;" onclick="restaurarDadosOriginais()">Restaurar a Aba</button>`;
   html += `<button id="btn-tornar-padrao" class="undo-btn" style="margin-top:6px;" onclick="tornarDadosPadrao()">⭐ Salvar dados</button>`;
-  html += `<button class="whatsapp-btn" style="margin-top:6px;" onclick="corrigirNomesEmDadosOriginaisComImportacaoExcel()">📝 Corrigir nomes em Dados Originais (com esta planilha)</button>
+  html += `<button class="whatsapp-btn" style="margin-top:6px;" onclick="corrigirNomesEmDadosOriginaisComBancoDeDados()">📝 Corrigir nomes, cor e grupo (com Banco de Dados)</button>
   <span id="copy-feedback-dadosoriginais-corrigir" class="copy-feedback"></span>`;
 
   const td = "padding:3px 4px;border:1px solid var(--border);";
@@ -2699,8 +2699,9 @@ function removerBancoDados(idx){
   showSection(activeTab);
 }
 
-function sincronizarTodasCoresBancoDados(){
-  const fb = document.getElementById("copy-feedback-bancodados");
+function sincronizarTodasCoresBancoDados(idFeedback){
+  idFeedback = idFeedback || "copy-feedback-bancodados";
+  const fb = document.getElementById(idFeedback);
   try{
     let processados = 0;
     BANCO_DADOS_LISTA.forEach((p, idx)=>{
@@ -2711,7 +2712,7 @@ function sincronizarTodasCoresBancoDados(){
     });
     renderAll();
     showSection(activeTab);
-    const fbNovo = document.getElementById("copy-feedback-bancodados");
+    const fbNovo = document.getElementById(idFeedback);
     if(fbNovo){
       fbNovo.textContent = `✅ Cores, nomes e bancas conferidos e corrigidos em Dados Originais (${processados} pessoa(s) verificada(s)).`;
     }
@@ -2720,6 +2721,11 @@ function sincronizarTodasCoresBancoDados(){
     else alert("Erro ao corrigir cores/nomes/bancas: " + (err && err.message ? err.message : err));
     console.error(err);
   }
+}
+
+// Atalho pro botão da aba Dados Originais, usando o Banco de Dados como fonte
+function corrigirNomesEmDadosOriginaisComBancoDeDados(){
+  sincronizarTodasCoresBancoDados("copy-feedback-dadosoriginais-corrigir");
 }
 
 function mudarGrupoBancoDados(idx, novoGrupo){
