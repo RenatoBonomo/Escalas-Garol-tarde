@@ -1970,6 +1970,11 @@ function dadosOriginaisHTML(){
   html += `<button class="whatsapp-btn" style="margin-top:6px;" onclick="corrigirNomesEmDadosOriginaisComBancoDeDados()">📝 Corrigir nomes, cor e grupo (com Banco de Dados)</button>
   <span id="copy-feedback-dadosoriginais-corrigir" class="copy-feedback"></span>`;
 
+  html += `<button class="print-btn" style="margin-top:6px;" onclick="verificarFundidoresFaltandoDadosOriginais()">🔍 Ver fundidores do Banco de Dados faltando/errados</button>`;
+  if(CAIXA_FUNDIDORES_FALTANDO){
+    html += CAIXA_FUNDIDORES_FALTANDO;
+  }
+
   const td = "padding:3px 4px;border:1px solid var(--border);";
   const th = "padding:5px;border:1px solid var(--border);background:#12151b;";
 
@@ -2266,6 +2271,8 @@ function sincronizarChapaComDadosOriginais(idx){
 
 // Guarda o resultado da última planilha analisada, esperando confirmação do usuário
 let IMPORTACAO_EXCEL_PENDENTE = null;
+let CAIXA_FUNDIDORES_FALTANDO = null;
+let CAIXA_DIAGNOSTICO_BD = null;
 
 // Verifica se um texto de cabeçalho bate com alguma das opções dadas
 // (ignora acento/maiúscula/ponto/espaço, aceita começo de palavra)
@@ -2977,6 +2984,170 @@ function bdOrdenarPor(coluna){
   showSection(activeTab);
 }
 
+// Compara Banco de Dados com Dados Originais e monta uma lista de fundidores
+// faltando (sem banca em nenhuma escala) ou em escala errada (grupo diferente)
+function verificarFundidoresFaltandoDadosOriginais(){
+  const faltando = [];
+  const errados = [];
+  const folguistasForaDoPadrao = [];
+
+  BANCO_DADOS_LISTA.forEach(p=>{
+    const ehFundidor = p.tipo === "Fundidor" || p.tipo === "Fundidor/Ajudante" || p.tipo === "Fundidor em Treinamento";
+    if(!ehFundidor) return;
+    if(!p.chapa){
+      faltando.push(`${p.nome} — sem chapa cadastrada no Banco de Dados`);
+      return;
+    }
+    let bancaFixo = null, bancaFolg = null;
+    Object.keys(FIXO_DATA).forEach(b=>{ if(FIXO_DATA[b].chapa === p.chapa) bancaFixo = b; });
+    Object.keys(FOLGUISTA_DATA).forEach(b=>{ if(FOLGUISTA_DATA[b].chapa === p.chapa) bancaFolg = b; });
+
+    if(!bancaFixo && !bancaFolg){
+      faltando.push(`${p.nome} (chapa ${p.chapa}, grupo ${p.grupo}) — não está em nenhuma banca das escalas F/H/B/D`);
+      return;
+    }
+    if(bancaFixo){
+      const grupoEscala = FIXO_DATA[bancaFixo].grupo;
+      if(grupoEscala && p.grupo && grupoEscala !== p.grupo){
+        errados.push(`${p.nome} (chapa ${p.chapa}) — Banco de Dados diz grupo ${p.grupo}, mas está na escala ${grupoEscala} (banca ${bancaFixo})`);
+      }
+    }
+  });
+
+  // cada folguista deveria cobrir exatamente 3 bancas — se tiver menos (ou mais),
+  // avisa quais bancas ele já está cadastrado, pra facilitar completar/corrigir
+  const bancasPorFolguista = {};
+  Object.keys(FOLGUISTA_DATA).forEach(banca=>{
+    const fo = FOLGUISTA_DATA[banca];
+    if(!fo || !fo.nome || fo.nome === "SEM FOLGUISTA") return;
+    const chave = fo.chapa || normalizaNome(fo.nome);
+    if(!bancasPorFolguista[chave]) bancasPorFolguista[chave] = {nome: fo.nome, bancas: []};
+    bancasPorFolguista[chave].bancas.push(banca);
+  });
+  Object.values(bancasPorFolguista).forEach(({nome, bancas})=>{
+    if(bancas.length !== 3){
+      folguistasForaDoPadrao.push(`${nome} — está cadastrado em ${bancas.length} banca(s) (${bancas.join(", ")}), deveria estar em 3`);
+    }
+  });
+
+  let html = `<div style="background:var(--panel);border:1px solid var(--border);border-left:3px solid #d9b968;border-radius:8px;padding:10px 12px;margin:10px 0;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+      <h3 style="margin:0;font-size:.8rem;">🔍 Fundidores do Banco de Dados — faltando/errados</h3>
+      <span class="del-btn" onclick="fecharCaixaFundidoresFaltando()">✕</span>
+    </div>`;
+
+  if(faltando.length === 0 && errados.length === 0 && folguistasForaDoPadrao.length === 0){
+    html += `<p style="margin:0;font-size:.75rem;color:#6fdc8c;">🎉 Todos os fundidores do Banco de Dados estão nas escalas certas.</p>`;
+  } else {
+    if(faltando.length > 0){
+      html += `<p style="margin:6px 0 2px;font-size:.72rem;color:var(--muted);"><b>Faltando nas escalas (${faltando.length}):</b></p>
+      <ul style="margin:0;padding-left:18px;font-size:.72rem;line-height:1.6;">${faltando.map(e=>`<li>${e}</li>`).join("")}</ul>`;
+    }
+    if(errados.length > 0){
+      html += `<p style="margin:8px 0 2px;font-size:.72rem;color:var(--muted);"><b>Em escala errada (${errados.length}):</b></p>
+      <ul style="margin:0;padding-left:18px;font-size:.72rem;line-height:1.6;">${errados.map(e=>`<li>${e}</li>`).join("")}</ul>`;
+    }
+    if(folguistasForaDoPadrao.length > 0){
+      html += `<p style="margin:8px 0 2px;font-size:.72rem;color:var(--muted);"><b>Folguistas fora do padrão de 3 bancas (${folguistasForaDoPadrao.length}):</b></p>
+      <ul style="margin:0;padding-left:18px;font-size:.72rem;line-height:1.6;">${folguistasForaDoPadrao.map(e=>`<li>${e}</li>`).join("")}</ul>`;
+    }
+  }
+  html += `</div>`;
+
+  CAIXA_FUNDIDORES_FALTANDO = html;
+  renderAll();
+  showSection(activeTab);
+}
+
+function fecharCaixaFundidoresFaltando(){
+  CAIXA_FUNDIDORES_FALTANDO = null;
+  renderAll();
+  showSection(activeTab);
+}
+
+function diagnosticarEscalasComBancoDados(){
+  const erros = [];
+
+  // 1) chapas duplicadas dentro do próprio Banco de Dados
+  const porChapa = {};
+  BANCO_DADOS_LISTA.forEach(p=>{
+    if(!p.chapa) return;
+    if(!porChapa[p.chapa]) porChapa[p.chapa] = [];
+    porChapa[p.chapa].push(p.nome);
+  });
+  Object.entries(porChapa).forEach(([chapa, nomes])=>{
+    if(nomes.length > 1){
+      erros.push(`⚠️ Chapa <b>${chapa}</b> cadastrada pra ${nomes.length} pessoas diferentes: ${nomes.join(", ")}.`);
+    }
+  });
+
+  // 2) pra cada Fundidor (ou Fundidor/Ajudante, Fundidor em Treinamento) com chapa,
+  // confere se ela está em alguma banca das escalas, e se o grupo bate
+  BANCO_DADOS_LISTA.forEach(p=>{
+    const ehFundidor = p.tipo === "Fundidor" || p.tipo === "Fundidor/Ajudante" || p.tipo === "Fundidor em Treinamento";
+    if(!ehFundidor) return;
+    if(!p.chapa){
+      erros.push(`⚠️ <b>${p.nome}</b> (${p.tipo}) não tem chapa cadastrada — não é possível saber se está em alguma escala.`);
+      return;
+    }
+    let bancaFixo = null, bancaFolg = null;
+    Object.keys(FIXO_DATA).forEach(b=>{ if(FIXO_DATA[b].chapa === p.chapa) bancaFixo = b; });
+    Object.keys(FOLGUISTA_DATA).forEach(b=>{ if(FOLGUISTA_DATA[b].chapa === p.chapa) bancaFolg = b; });
+
+    if(!bancaFixo && !bancaFolg){
+      erros.push(`⚠️ <b>${p.nome}</b> (chapa ${p.chapa}, deveria ser grupo ${p.grupo}) — não aparece em <b>nenhuma banca de nenhuma escala F/H/B/D</b>. Não está cadastrado como Fixo nem como Folguista em Dados Originais.`);
+      return;
+    }
+    if(bancaFixo){
+      const grupoEscala = FIXO_DATA[bancaFixo].grupo;
+      if(grupoEscala && p.grupo && grupoEscala !== p.grupo){
+        erros.push(`⚠️ <b>${p.nome}</b> (chapa ${p.chapa}) está na <b>Escala ${grupoEscala}</b>, banca <b>${bancaFixo}</b> — mas o Banco de Dados diz que ele é do grupo <b>${p.grupo}</b>. Confira a Escala ${grupoEscala}.`);
+      }
+    }
+  });
+
+  // 3) confere se a quantidade de Fundidores por grupo bate entre o Banco de
+  // Dados e Dados Originais (fixo + folguistas únicos, igual a aba "Resumo")
+  ["F","H","B","D"].forEach(g=>{
+    const fundidoresBD = BANCO_DADOS_LISTA.filter(p=>(p.tipo==="Fundidor"||p.tipo==="Fundidor/Ajudante"||p.tipo==="Fundidor em Treinamento") && p.grupo===g).length;
+
+    let fixosEscala = 0;
+    Object.values(FIXO_DATA).forEach(f=>{ if(f.grupo===g) fixosEscala++; });
+    const folguistasUnicosEscala = new Set();
+    Object.values(FOLGUISTA_DATA).forEach(fo=>{
+      if(fo.nome && fo.chapa && grupoPessoalPorNome(fo.nome, null, fo.chapa) === g) folguistasUnicosEscala.add(normalizaNome(fo.nome));
+    });
+    const totalEscala = fixosEscala + folguistasUnicosEscala.size;
+
+    if(fundidoresBD !== totalEscala){
+      erros.push(`⚠️ <b>Escala ${g}</b>: Banco de Dados tem <b>${fundidoresBD}</b> fundidor(es), mas a Escala ${g} tem <b>${totalEscala}</b> (${fixosEscala} fixo(s) + ${folguistasUnicosEscala.size} folguista(s)). Confira a Escala ${g}.`);
+    }
+  });
+
+  let html = `<div style="background:var(--panel);border:1px solid var(--border);border-left:3px solid #d9b968;border-radius:8px;padding:10px 12px;margin:10px 0;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+      <h3 style="margin:0;font-size:.8rem;">🩺 Diagnóstico das escalas F/H/B/D</h3>
+      <span class="del-btn" onclick="fecharDiagnosticoBancoDados()">✕</span>
+    </div>`;
+  if(erros.length === 0){
+    html += `<p style="margin:0;font-size:.75rem;color:#6fdc8c;">🎉 Nenhum erro encontrado — Banco de Dados e escalas estão consistentes.</p>`;
+  } else {
+    html += `<p style="margin:0 0 6px;font-size:.72rem;color:var(--muted);">${erros.length} item(ns) encontrado(s):</p>
+    <ul style="margin:0;padding-left:18px;font-size:.72rem;line-height:1.6;">${erros.map(e=>`<li>${e}</li>`).join("")}</ul>`;
+  }
+  html += `</div>`;
+
+  CAIXA_DIAGNOSTICO_BD = html;
+  renderAll();
+  showSection(activeTab);
+}
+
+function fecharDiagnosticoBancoDados(){
+  CAIXA_DIAGNOSTICO_BD = null;
+  renderAll();
+  showSection(activeTab);
+}
+
 function bancoDadosHTML(){
   const ordemGrupo = {F:0,H:1,B:2,D:3};
   const dir = bdOrdenarDirecao === "asc" ? 1 : -1;
@@ -3025,7 +3196,9 @@ function bancoDadosHTML(){
   <button class="whatsapp-btn" style="margin-top:6px;" onclick="sincronizarTodasCoresBancoDados()">🎨 Corrigir cor, nome e banca em Dados Originais</button>
   <button class="print-btn" style="margin-top:6px;" onclick="conferirChapasBancoDados()">🔍 Conferir chapas com Dados Originais</button>
   <button class="undo-btn" style="margin-top:6px;" onclick="corrigirChapaBancaTrocada()">🔀 Corrigir chapa/banca trocados</button>
+  <button class="print-btn" style="margin-top:6px;" onclick="diagnosticarEscalasComBancoDados()">🩺 Diagnóstico das escalas F/H/B/D</button>
   <span id="copy-feedback-bancodados" class="copy-feedback"></span>
+  ${CAIXA_DIAGNOSTICO_BD || ""}
   <button class="reset-btn" onclick="restaurarBancoDados()">Restaurar a Aba</button>
   <button id="btn-bd-salvar-padrao" class="undo-btn" style="margin-top:6px;" onclick="salvarBancoDadosComoOriginal()">⭐ Salvar dados</button>`;
 
@@ -3797,7 +3970,8 @@ function carregarBackupJSON(event){
       event.target.value = "";
       return;
     }
-    if(!confirm("Isso vai substituir os dados salvos neste dispositivo pelos dados desse backup. Continuar?")){
+    if(!dados || typeof dados !== "object"){
+      if(fb) fb.textContent = "⚠️ Esse arquivo não é um backup .json válido.";
       event.target.value = "";
       return;
     }
@@ -3807,8 +3981,17 @@ function carregarBackupJSON(event){
         try{ localStorage.setItem(k, dados[k]); importados++; }catch(err){}
       }
     });
-    alert(`${importados} item(ns) importado(s)! A página vai recarregar agora.`);
-    location.reload();
+    if(fb){
+      fb.innerHTML = "";
+      fb.append(`✅ ${importados} item(ns) importado(s)! `);
+      const btnRecarregar = document.createElement("button");
+      btnRecarregar.textContent = "🔄 Recarregar agora";
+      btnRecarregar.className = "undo-btn";
+      btnRecarregar.style.marginLeft = "6px";
+      btnRecarregar.onclick = function(){ try{ location.reload(); }catch(err){} };
+      fb.appendChild(btnRecarregar);
+    }
+    try{ location.reload(); }catch(err){}
   };
   reader.onerror = function(){
     if(fb) fb.textContent = "⚠️ Não consegui ler o arquivo.";
