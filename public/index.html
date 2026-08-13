@@ -78,6 +78,9 @@
   @keyframes piscaDuplicada{0%,100%{outline-color:#e04b4b;}50%{outline-color:#ff9d9d;}}
   .aviso-duplicada{background:#3a1f1f;border:1px solid #5a3333;border-left:3px solid #e04b4b;border-radius:6px;padding:8px 12px;margin-bottom:10px;font-size:.75rem;color:#ff9d9d;line-height:1.5;}
   .aviso-duplicada b{color:#ffb3b3;}
+  .badge-pendente{background:#4a3a12;color:#e8c96a;border-radius:12px;padding:3px 12px;font-size:.7rem;font-weight:700;display:inline-block;}
+  .badge-quitado{background:#173d24;color:#6fdc8c;border-radius:12px;padding:3px 12px;font-size:.7rem;font-weight:700;display:inline-block;}
+  .data-invalida-aviso{color:#e88;font-size:.62rem;display:block;margin-top:1px;}
   .chapa-hint{color:var(--muted);font-size:.62rem;margin:8px 0 10px;line-height:1.3;}
   .reset-btn{background:#3a2323;color:#e88;border:1px solid #5a3333;padding:10px 12px;border-radius:6px;cursor:pointer;font-size:.75rem;margin-bottom:10px;flex:1;}
   .undo-btn{background:#1f2f45;color:#8fb4dc;border:1px solid #2f4e6b;padding:10px 12px;border-radius:6px;cursor:pointer;font-size:.75rem;margin-bottom:10px;flex:1;}
@@ -1556,15 +1559,16 @@ function formatarDataBR(d){
 }
 
 // ---- Compensação Débito (CD): mesmo tratamento dos atestados nas escalas ----
+// Marca CD só no dia exato do débito, e só enquanto ele estiver Pendente
+// (sem crédito lançado ainda). Assim que ganha um crédito (quitado), some da escala.
 function debitoAtivoNaEscala(chapa, g, dataAlvo){
   if(!chapa) return null;
   dataAlvo = dataAlvo || proximaDataDaEscala(g);
+  const dataAlvoISO = dataAlvo.toISOString().slice(0,10);
   return BANCO_HORAS.find(l=>{
-    if(l.tipo !== "Debito" || l.chapa !== chapa) return false;
-    const inicio = new Date(l.data+"T00:00:00");
-    const fim = new Date(inicio);
-    fim.setDate(fim.getDate() + l.dias);
-    return dataAlvo >= inicio && dataAlvo < fim;
+    if(l.chapa !== chapa) return false;
+    if(l.creditoISO || l.creditoTexto) return false; // já quitado, não conta mais
+    return l.debitoISO === dataAlvoISO;
   }) || null;
 }
 
@@ -1573,20 +1577,20 @@ function debitoAtivoNaEscalaPorNome(nome, g, dataAlvo){
   if(!nome) return null;
   const alvoNome = normalizaNome(nome);
   dataAlvo = dataAlvo || proximaDataDaEscala(g);
+  const dataAlvoISO = dataAlvo.toISOString().slice(0,10);
   return BANCO_HORAS.find(l=>{
-    if(l.tipo !== "Debito" || normalizaNome(l.nome) !== alvoNome) return false;
-    const inicio = new Date(l.data+"T00:00:00");
-    const fim = new Date(inicio);
-    fim.setDate(fim.getDate() + l.dias);
-    return dataAlvo >= inicio && dataAlvo < fim;
+    if(normalizaNome(l.nome) !== alvoNome) return false;
+    if(l.creditoISO || l.creditoTexto) return false; // já quitado, não conta mais
+    return l.debitoISO === dataAlvoISO;
   }) || null;
 }
 
-// Data em que a pessoa volta a trabalhar: início + dias corridos do débito
+// Data em que a pessoa volta a trabalhar: como o débito agora é sempre de 1 dia
+// exato, o retorno é sempre o dia seguinte ao débito.
 function dataRetornoDebito(lancamento){
-  const inicio = new Date(lancamento.data+"T00:00:00");
+  const inicio = new Date(lancamento.debitoISO+"T00:00:00");
   const retorno = new Date(inicio);
-  retorno.setDate(retorno.getDate() + lancamento.dias);
+  retorno.setDate(retorno.getDate() + 1);
   return retorno;
 }
 
@@ -1707,19 +1711,19 @@ function removerAtestado(id){
   showSection(activeTab);
 }
 
+// Cada lançamento do Banco de Horas é 1 débito (dia devido), que fica
+// "Pendente" até ganhar uma data/observação de crédito na mesma linha,
+// virando "Quitado". debitoISO/creditoISO ficam null quando o texto não é
+// uma data reconhecível (aí o texto original é guardado pra exibir mesmo assim).
 function adicionarBancoHoras(){
   const chapaInput = document.getElementById("bh-chapa");
-  const diasInput = document.getElementById("bh-dias");
-  const tipoInput = document.getElementById("bh-tipo");
-  const dataInput = document.getElementById("bh-data");
+  const debitoInput = document.getElementById("bh-debito");
   const obsInput = document.getElementById("bh-obs");
   const valorDigitado = chapaInput.value.trim();
-  const dias = parseInt(diasInput.value, 10);
-  const tipo = tipoInput.value; // "Credito" ou "Debito"
-  const data = dataInput.value || new Date().toISOString().slice(0,10);
+  const debito = debitoInput.value;
 
-  if(!valorDigitado || !dias || dias <= 0 || !data){
-    alert("Preencha chapa ou nome, a data e a quantidade de dias (maior que zero).");
+  if(!valorDigitado || !debito){
+    alert("Preencha chapa ou nome e a data do débito.");
     return;
   }
 
@@ -1744,32 +1748,99 @@ function adicionarBancoHoras(){
     grupo = GRUPO_ORIGINAL_POR_CHAPA[chapa] || null;
   }
 
-  BANCO_HORAS.push({id: Date.now(), chapa, nome, grupo, dias, tipo, obs: (obsInput.value||"").trim(), data});
+  BANCO_HORAS.push({
+    id: Date.now(), chapa, nome, grupo,
+    debitoISO: debito, debitoTexto: "",
+    creditoISO: null, creditoTexto: "",
+    obs: (obsInput.value||"").trim()
+  });
   salvarBancoHoras();
 
   chapaInput.value = "";
-  diasInput.value = "";
   obsInput.value = "";
-  if(dataInput) dataInput.value = new Date().toISOString().slice(0,10);
+  if(debitoInput) debitoInput.value = new Date().toISOString().slice(0,10);
 
   renderAll();
   showSection(activeTab);
 }
 
 function removerBancoHoras(id){
+  const l = BANCO_HORAS.find(x=>x.id===id);
+  if(!l) return;
+  const debitoTxt = textoExibicaoBH(l.debitoISO, l.debitoTexto);
+  if(!confirm(`Excluir o lançamento de ${l.nome} (débito ${debitoTxt})?`)) return;
   BANCO_HORAS = BANCO_HORAS.filter(a=>a.id!==id);
   salvarBancoHoras();
   renderAll();
   showSection(activeTab);
 }
 
-// Soma os lançamentos por pessoa (chapa se tiver, senão nome), pra mostrar o saldo total
+// Marca um lançamento pendente como quitado hoje (atalho rápido)
+function quitarBancoHoras(id){
+  const l = BANCO_HORAS.find(x=>x.id===id);
+  if(!l) return;
+  l.creditoISO = new Date().toISOString().slice(0,10);
+  l.creditoTexto = "";
+  salvarBancoHoras();
+  renderAll();
+  showSection(activeTab);
+}
+
+// ---- Edição inline de datas erradas ----
+let BH_EDITANDO_ID = null;
+
+function editarLancamentoBH(id){
+  BH_EDITANDO_ID = id;
+  const sec = document.getElementById("sec-bancohoras");
+  if(sec) sec.innerHTML = bancoHorasHTML();
+}
+
+function cancelarEdicaoBH(){
+  BH_EDITANDO_ID = null;
+  const sec = document.getElementById("sec-bancohoras");
+  if(sec) sec.innerHTML = bancoHorasHTML();
+}
+
+function salvarEdicaoBH(id){
+  const l = BANCO_HORAS.find(x=>x.id===id);
+  if(!l) return;
+  const debitoInput = document.getElementById("bh-edit-debito-"+id);
+  const creditoInput = document.getElementById("bh-edit-credito-"+id);
+  if(debitoInput && debitoInput.value){
+    l.debitoISO = debitoInput.value;
+    l.debitoTexto = "";
+  }
+  if(creditoInput){
+    if(creditoInput.value){
+      l.creditoISO = creditoInput.value;
+      l.creditoTexto = "";
+    } else {
+      // campo de crédito deixado em branco = volta a ficar Pendente
+      l.creditoISO = null;
+      l.creditoTexto = "";
+    }
+  }
+  salvarBancoHoras();
+  BH_EDITANDO_ID = null;
+  renderAll();
+  showSection(activeTab);
+}
+
+// Texto de exibição da data (formatada) ou o texto original se não for uma data válida
+function textoExibicaoBH(iso, textoOriginal){
+  if(iso) return iso.split("-").reverse().join("/");
+  return textoOriginal || "";
+}
+
+// Conta quantos débitos ainda estão pendentes (sem crédito) por pessoa
 function saldosBancoHoras(){
   const mapa = {};
   BANCO_HORAS.forEach(l=>{
     const chave = l.chapa || normalizaNome(l.nome);
-    if(!mapa[chave]) mapa[chave] = {nome: l.nome, chapa: l.chapa, grupo: l.grupo, saldo: 0};
-    mapa[chave].saldo += (l.tipo === "Debito" ? -l.dias : l.dias);
+    if(!mapa[chave]) mapa[chave] = {nome: l.nome, chapa: l.chapa, grupo: l.grupo, pendentes: 0, quitados: 0};
+    const temCredito = !!(l.creditoISO || l.creditoTexto);
+    if(temCredito) mapa[chave].quitados++;
+    else mapa[chave].pendentes++;
   });
   return Object.values(mapa).sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR'));
 }
@@ -1851,57 +1922,482 @@ function atestadosHTML(){
     html += `<button class="undo-btn" style="margin-top:6px;" onclick="salvarTodosAtestados()">💾 Salvar alterações</button>`;
   }
 
-  html += bancoHorasHTML();
+  return html;
+}
+
+// ---- Aba "Banco de Horas": com sub-abas Relatório / Saldo / Lançar dados ----
+let BANCO_HORAS_SUBABA = "relatorio";
+function irParaSubabaBancoHoras(sub){
+  BANCO_HORAS_SUBABA = sub;
+  const sec = document.getElementById("sec-bancohoras");
+  if(sec) sec.innerHTML = bancoHorasHTML();
+}
+
+function bancoHorasHTML(){
+  let html = `<h2>🕐 Banco de Horas</h2>`;
+
+  const subs = [
+    {id:"relatorio", label:"📄 Relatório"},
+    {id:"saldo", label:"📊 Saldo"},
+    {id:"lancar", label:"➕ Lançar dados"},
+    {id:"importar", label:"📤 Importar arquivo"},
+  ];
+  html += `<div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;">`;
+  subs.forEach(s=>{
+    const ativo = BANCO_HORAS_SUBABA === s.id;
+    html += `<button class="whatsapp-btn" style="margin:0;flex:1;min-width:120px;${ativo?"background:#1f3d2b;color:#6fdc8c;border-color:#2f6b45;":""}" onclick="irParaSubabaBancoHoras('${s.id}')">${s.label}</button>`;
+  });
+  html += `</div>`;
+
+  if(BANCO_HORAS_SUBABA === "lancar") html += bancoHorasSubLancarHTML();
+  else if(BANCO_HORAS_SUBABA === "saldo") html += bancoHorasSubSaldoHTML();
+  else if(BANCO_HORAS_SUBABA === "importar") html += bancoHorasSubImportarHTML();
+  else html += bancoHorasSubRelatorioHTML();
 
   return html;
 }
 
-function bancoHorasHTML(){
-  let html = `<h2 style="margin-top:18px;">🕐 Banco de Horas</h2>`;
-  html += `<p style="color:var(--muted);font-size:.72rem;margin:0 0 10px;">Lance dias inteiros de crédito (compensação a favor) ou débito (compensação a pagar) pra cada pessoa. O saldo é a soma de todos os lançamentos.</p>`;
+let BANCO_HORAS_TIPO_LANCAR = "debito";
 
-  html += `<div class="add-ajudante">
-    <input type="text" id="bh-chapa" list="at-sugestoes" placeholder="Chapa ou nome..." style="min-width:160px;background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:.72rem;">
-    <select id="bh-tipo">
-      <option value="Credito">Crédito</option>
-      <option value="Debito">Débito</option>
-    </select>
-    <input type="date" id="bh-data" value="${new Date().toISOString().slice(0,10)}" style="background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:.72rem;">
-    <input type="number" min="1" id="bh-dias" placeholder="Dias" style="max-width:70px;background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:.72rem;">
-    <input type="text" id="bh-obs" placeholder="Motivo (opcional)..." style="min-width:140px;background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:.72rem;">
-    <button class="add-btn" onclick="adicionarBancoHoras()">+ Lançar</button>
+function alternarTipoLancarBH(tipo){
+  BANCO_HORAS_TIPO_LANCAR = tipo;
+  const sec = document.getElementById("sec-bancohoras");
+  if(sec) sec.innerHTML = bancoHorasHTML();
+}
+
+function bancoHorasSubLancarHTML(){
+  let html = "";
+
+  html += `<div style="display:flex;gap:6px;margin-bottom:12px;">
+    <button class="whatsapp-btn" style="margin:0;flex:1;${BANCO_HORAS_TIPO_LANCAR==="debito"?"background:#3a2323;color:#e8c96a;border-color:#5a3333;":""}" onclick="alternarTipoLancarBH('debito')">🟡 Débito</button>
+    <button class="whatsapp-btn" style="margin:0;flex:1;${BANCO_HORAS_TIPO_LANCAR==="credito"?"background:#1f3d2b;color:#6fdc8c;border-color:#2f6b45;":""}" onclick="alternarTipoLancarBH('credito')">🟢 Crédito</button>
   </div>`;
 
-  const saldos = saldosBancoHoras();
-  html += `<h3 style="margin-top:12px;">Saldo por pessoa</h3>`;
-  html += `<div class="table-wrap"><table><thead><tr><th>Grupo</th><th>Chapa</th><th>Nome</th><th>Saldo</th></tr></thead><tbody>`;
-  if(saldos.length === 0){
-    html += `<tr><td colspan="4" style="color:var(--muted);text-align:center;">Nenhum lançamento ainda.</td></tr>`;
+  if(BANCO_HORAS_TIPO_LANCAR === "credito"){
+    html += `<p style="color:var(--muted);font-size:.72rem;margin:0 0 10px;">Digite a chapa ou nome da pessoa pra ver os débitos pendentes dela e quitar um deles com a data de crédito.</p>`;
+    html += `<div class="add-ajudante">
+      <input type="text" id="bh-chapa-credito" list="at-sugestoes" placeholder="Chapa ou nome..." style="min-width:160px;background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:.72rem;">
+      <span style="font-size:.68rem;color:var(--muted);">Data do crédito:</span>
+      <input type="date" id="bh-data-credito" value="${new Date().toISOString().slice(0,10)}" style="background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:.72rem;">
+      <button class="add-btn" onclick="buscarPendentesBH()">➕ Lançar Crédito</button>
+    </div>`;
+    html += `<div id="lista-pendentes-credito-bh" style="margin-top:10px;"></div>`;
+  } else {
+    html += `<p style="color:var(--muted);font-size:.72rem;margin:0 0 10px;">Lance um débito (dia devido) pra uma pessoa. <b>Enquanto estiver pendente, ele aparece marcado como "CD" na escala dela naquele dia.</b> Pra quitar depois, use a aba Crédito ou o botão "Quitar hoje" no Relatório.</p>`;
+    html += `<div class="add-ajudante">
+      <input type="text" id="bh-chapa" list="at-sugestoes" placeholder="Chapa ou nome..." style="min-width:160px;background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:.72rem;">
+      <span style="font-size:.68rem;color:var(--muted);">Data do débito:</span>
+      <input type="date" id="bh-debito" value="${new Date().toISOString().slice(0,10)}" style="background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:.72rem;">
+      <input type="text" id="bh-obs" placeholder="Motivo (opcional)..." style="min-width:140px;background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:.72rem;">
+      <button class="add-btn" onclick="adicionarBancoHoras()">+ Lançar Débito</button>
+    </div>`;
   }
-  saldos.forEach(s=>{
-    const tagGrupo = s.grupo ? `<span class="tag tag-${s.grupo}">${s.grupo}</span>` : `<span class="tag tag-Especial">?</span>`;
-    const corSaldo = s.saldo > 0 ? "#6fdc8c" : (s.saldo < 0 ? "#e88" : "var(--muted)");
-    const sinal = s.saldo > 0 ? "+" : "";
-    const rotulo = s.saldo === 1 || s.saldo === -1 ? "dia" : "dias";
-    html += `<tr><td>${tagGrupo}</td><td>${s.chapa || '<span style="color:var(--muted);">sem chapa</span>'}</td><td>${s.nome}</td><td style="color:${corSaldo};font-weight:700;">${sinal}${s.saldo} ${rotulo}</td></tr>`;
-  });
-  html += `</tbody></table></div>`;
 
-  html += `<h3 style="margin-top:12px;">Histórico de lançamentos</h3>`;
-  html += `<div class="table-wrap"><table><thead><tr><th>Data</th><th>Nome</th><th>Tipo</th><th>Dias</th><th>Motivo</th><th></th></tr></thead><tbody>`;
-  const historico = BANCO_HORAS.slice().sort((a,b)=>b.data.localeCompare(a.data) || b.id-a.id);
-  if(historico.length === 0){
-    html += `<tr><td colspan="6" style="color:var(--muted);text-align:center;">Nenhum lançamento ainda.</td></tr>`;
-  }
-  historico.forEach(l=>{
-    const dataFmt = l.data.split("-").reverse().join("/");
-    const ehCredito = l.tipo !== "Debito";
-    const corH = ehCredito ? "#6fdc8c" : "#e88";
-    html += `<tr><td>${dataFmt}</td><td>${l.nome}</td><td style="color:${corH};font-weight:700;">${ehCredito?"Crédito":"Débito"}</td><td style="color:${corH};font-weight:700;">${l.dias}</td><td>${l.obs || "-"}</td><td><span class="del-btn" onclick="removerBancoHoras(${l.id})">✕</span></td></tr>`;
-  });
-  html += `</tbody></table></div>`;
-
+  html += `<h3 style="margin-top:16px;">Últimos lançamentos</h3>`;
+  html += tabelaBancoHorasHTML(BANCO_HORAS.slice().sort((a,b)=>(b.debitoISO||"").localeCompare(a.debitoISO||"") || b.id-a.id).slice(0,10));
   return html;
+}
+
+// Lista os débitos pendentes de uma pessoa (digitada em #bh-chapa-credito),
+// pra quitar um deles com a data escolhida em #bh-data-credito.
+function buscarPendentesBH(){
+  const chapaInput = document.getElementById("bh-chapa-credito");
+  const container = document.getElementById("lista-pendentes-credito-bh");
+  if(!chapaInput || !container) return;
+  const valorDigitado = chapaInput.value.trim();
+  if(!valorDigitado){
+    container.innerHTML = `<p style="color:#e88;font-size:.75rem;">Digite a chapa ou nome primeiro.</p>`;
+    return;
+  }
+
+  const resultado = resolverChapaOuNomeAtestado(valorDigitado);
+  if(resultado.ambiguo){
+    container.innerHTML = `<p style="color:#e88;font-size:.75rem;">Mais de uma pessoa bate com esse nome:<br>${resultado.opcoes.map(p=>`${p.chapa || "sem chapa"} — ${p.nome}`).join("<br>")}<br>Digite o nome completo (ou a chapa).</p>`;
+    return;
+  }
+  if(!resultado.chapa && !resultado.nome){
+    container.innerHTML = `<p style="color:#e88;font-size:.75rem;">Não encontrei ninguém com a chapa/nome "${valorDigitado}".</p>`;
+    return;
+  }
+
+  const chapaAlvo = resultado.chapa || "";
+  const nomeAlvo = resultado.semChapa ? resultado.nome : (NOME_POR_CHAPA[chapaAlvo] || NOME_POR_CHAPA_ORIGINAL[chapaAlvo] || "");
+  const pendentes = BANCO_HORAS.filter(l=>{
+    const mesmaPessoa = chapaAlvo ? l.chapa === chapaAlvo : normalizaNome(l.nome) === normalizaNome(nomeAlvo);
+    return mesmaPessoa && !(l.creditoISO || l.creditoTexto);
+  }).sort((a,b)=>(a.debitoISO||"").localeCompare(b.debitoISO||""));
+
+  if(pendentes.length === 0){
+    container.innerHTML = `<p style="color:#6fdc8c;font-size:.75rem;">✅ ${nomeAlvo || valorDigitado} não tem nenhum débito pendente.</p>`;
+    return;
+  }
+
+  if(pendentes.length === 1){
+    quitarComDataEscolhidaBH(pendentes[0].id);
+    return;
+  }
+
+  let html = `<p style="color:var(--muted);font-size:.72rem;margin-bottom:6px;">${pendentes.length} débito(s) pendente(s) de ${nomeAlvo}:</p>`;
+  html += `<div class="table-wrap"><table><thead><tr><th>Débito</th><th>Motivo</th><th></th></tr></thead><tbody>`;
+  pendentes.forEach(l=>{
+    const debitoTxt = textoExibicaoBH(l.debitoISO, l.debitoTexto);
+    html += `<tr><td>${debitoTxt}</td><td>${l.obs||"-"}</td><td><button class="add-btn" style="padding:3px 8px;font-size:.65rem;" onclick="quitarComDataEscolhidaBH(${l.id})">✅ Quitar com essa data</button></td></tr>`;
+  });
+  html += `</tbody></table></div>`;
+  container.innerHTML = html;
+}
+
+function quitarComDataEscolhidaBH(id){
+  const l = BANCO_HORAS.find(x=>x.id===id);
+  const dataInput = document.getElementById("bh-data-credito");
+  if(!l || !dataInput || !dataInput.value) return;
+  l.creditoISO = dataInput.value;
+  l.creditoTexto = "";
+  salvarBancoHoras();
+  renderAll();
+  showSection(activeTab);
+}
+
+let BANCO_HORAS_ORDEM_SALDO = {col:"pendentes", dir:"desc"};
+
+function alternarOrdemSaldoBH(col){
+  if(BANCO_HORAS_ORDEM_SALDO.col === col){
+    BANCO_HORAS_ORDEM_SALDO.dir = BANCO_HORAS_ORDEM_SALDO.dir === "asc" ? "desc" : "asc";
+  } else {
+    BANCO_HORAS_ORDEM_SALDO = {col, dir: (col==="pendentes"||col==="quitados") ? "desc" : "asc"};
+  }
+  const sec = document.getElementById("sec-bancohoras");
+  if(sec) sec.innerHTML = bancoHorasHTML();
+}
+
+function thOrdenavelSaldoBH(col, label){
+  const ativo = BANCO_HORAS_ORDEM_SALDO.col === col;
+  const seta = ativo ? (BANCO_HORAS_ORDEM_SALDO.dir === "asc" ? " ▲" : " ▼") : ` <span style="opacity:.35;">↕</span>`;
+  return `<th style="cursor:pointer;user-select:none;white-space:nowrap;" onclick="alternarOrdemSaldoBH('${col}')">${label}${seta}</th>`;
+}
+
+function bancoHorasSubSaldoHTML(){
+  let html = "";
+  const saldos = saldosBancoHoras();
+  html += `<button class="whatsapp-btn" onclick="copiarWhatsAppSaldoBancoHoras()">📋 Copiar saldo para WhatsApp</button>
+  <span id="copy-feedback-bh-saldo" class="copy-feedback"></span>`;
+  html += `<div class="table-wrap"><table><thead><tr>${thOrdenavelSaldoBH("grupo","Grupo")}${thOrdenavelSaldoBH("chapa","Chapa")}${thOrdenavelSaldoBH("nome","Nome")}${thOrdenavelSaldoBH("pendentes","Pendentes")}${thOrdenavelSaldoBH("quitados","Quitados")}</tr></thead><tbody>`;
+  if(saldos.length === 0){
+    html += `<tr><td colspan="5" style="color:var(--muted);text-align:center;">Nenhum lançamento ainda.</td></tr>`;
+  }
+  const {col, dir} = BANCO_HORAS_ORDEM_SALDO;
+  const mult = dir === "asc" ? 1 : -1;
+  saldos.slice().sort((a,b)=>{
+    if(col==="pendentes" || col==="quitados") return mult*(a[col]-b[col]);
+    const va = col==="grupo" ? (a.grupo||"") : col==="chapa" ? (a.chapa||"") : a.nome;
+    const vb = col==="grupo" ? (b.grupo||"") : col==="chapa" ? (b.chapa||"") : b.nome;
+    return mult * String(va).localeCompare(String(vb), 'pt-BR', {numeric:true, sensitivity:'base'});
+  }).forEach(s=>{
+    const tagGrupo = s.grupo ? `<span class="tag tag-${s.grupo}">${s.grupo}</span>` : `<span class="tag tag-Especial">?</span>`;
+    const corPend = s.pendentes > 0 ? "#e8c96a" : "var(--muted)";
+    html += `<tr><td>${tagGrupo}</td><td>${s.chapa || '<span style="color:var(--muted);">sem chapa</span>'}</td><td>${s.nome}</td><td style="color:${corPend};font-weight:700;">${s.pendentes}</td><td style="color:#6fdc8c;">${s.quitados}</td></tr>`;
+  });
+  html += `</tbody></table></div>`;
+  return html;
+}
+
+function bancoHorasSubRelatorioHTML(){
+  let html = "";
+  html += `<button class="whatsapp-btn" onclick="copiarWhatsAppRelatorioBancoHoras()">📋 Copiar relatório para WhatsApp</button>
+  <span id="copy-feedback-bh-relatorio" class="copy-feedback"></span>`;
+  html += `<input type="text" id="bh-filtro-nome" placeholder="🔍 Filtrar por nome..." oninput="filtrarTabelaBancoHoras(this.value)" style="width:100%;box-sizing:border-box;background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:.78rem;margin:10px 0;">`;
+  html += `<h3 style="margin-top:4px;">Histórico completo de lançamentos</h3>`;
+  html += `<div id="tabela-relatorio-bh">` + tabelaBancoHorasHTML(BANCO_HORAS, true) + `</div>`;
+  return html;
+}
+
+function filtrarTabelaBancoHoras(valor){
+  const alvo = normalizaNome(valor||"");
+  const linhas = document.querySelectorAll("#tabela-relatorio-bh tbody tr");
+  linhas.forEach(tr=>{
+    if(!alvo){ tr.style.display = ""; return; }
+    const texto = normalizaNome(tr.textContent||"");
+    tr.style.display = texto.includes(alvo) ? "" : "none";
+  });
+}
+
+// Tabela reutilizada em Lançar/Relatório: Grupo, Chapa, Nome, Débito, Crédito, Status
+// ---- Ordenação clicável da tabela de Banco de Horas ----
+let BANCO_HORAS_ORDEM = {col:"debito", dir:"desc"};
+
+function valorOrdenacaoBH(l, col){
+  switch(col){
+    case "grupo": return l.grupo || "";
+    case "chapa": return l.chapa || "";
+    case "nome": return l.nome || "";
+    case "debito": return l.debitoISO || l.debitoTexto || "";
+    case "credito": return l.creditoISO || l.creditoTexto || "";
+    case "status": return (l.creditoISO || l.creditoTexto) ? "Quitado" : "Pendente";
+    default: return "";
+  }
+}
+
+function ordenarListaBH(lista){
+  const {col, dir} = BANCO_HORAS_ORDEM;
+  const mult = dir === "asc" ? 1 : -1;
+  return lista.slice().sort((a,b)=>{
+    const va = valorOrdenacaoBH(a, col), vb = valorOrdenacaoBH(b, col);
+    return mult * String(va).localeCompare(String(vb), 'pt-BR', {numeric:true, sensitivity:'base'});
+  });
+}
+
+function alternarOrdemBH(col){
+  if(BANCO_HORAS_ORDEM.col === col){
+    BANCO_HORAS_ORDEM.dir = BANCO_HORAS_ORDEM.dir === "asc" ? "desc" : "asc";
+  } else {
+    BANCO_HORAS_ORDEM = {col, dir:"asc"};
+  }
+  const sec = document.getElementById("sec-bancohoras");
+  if(sec) sec.innerHTML = bancoHorasHTML();
+}
+
+function thOrdenavelBH(col, label){
+  const ativo = BANCO_HORAS_ORDEM.col === col;
+  const seta = ativo ? (BANCO_HORAS_ORDEM.dir === "asc" ? " ▲" : " ▼") : ` <span style="opacity:.35;">↕</span>`;
+  return `<th style="cursor:pointer;user-select:none;white-space:nowrap;" onclick="alternarOrdemBH('${col}')">${label}${seta}</th>`;
+}
+
+function tabelaBancoHorasHTML(lista, comOrdenacao){
+  const listaFinal = comOrdenacao ? ordenarListaBH(lista) : lista;
+  const cab = comOrdenacao
+    ? `${thOrdenavelBH("grupo","Grupo")}${thOrdenavelBH("chapa","Chapa")}${thOrdenavelBH("nome","Nome")}${thOrdenavelBH("debito","Débito")}${thOrdenavelBH("credito","Crédito")}${thOrdenavelBH("status","Status")}<th></th>`
+    : `<th>Grupo</th><th>Chapa</th><th>Nome</th><th>Débito</th><th>Crédito</th><th>Status</th><th></th>`;
+  let html = `<div class="table-wrap"><table><thead><tr>${cab}</tr></thead><tbody>`;
+  if(listaFinal.length === 0){
+    html += `<tr><td colspan="7" style="color:var(--muted);text-align:center;">Nenhum lançamento ainda.</td></tr>`;
+  }
+  listaFinal.forEach(l=>{
+    const tagGrupo = l.grupo ? `<span class="tag tag-${l.grupo}">${l.grupo}</span>` : `<span class="tag tag-Especial">?</span>`;
+    const debitoTxt = textoExibicaoBH(l.debitoISO, l.debitoTexto);
+    const debitoAviso = !l.debitoISO && l.debitoTexto ? `<span class="data-invalida-aviso">⚠️ data inválida no original</span>` : "";
+    const temCredito = !!(l.creditoISO || l.creditoTexto);
+    const creditoTxt = temCredito ? textoExibicaoBH(l.creditoISO, l.creditoTexto) : "-";
+    const creditoAviso = temCredito && !l.creditoISO ? `<span class="data-invalida-aviso">⚠️ data inválida no original</span>` : "";
+
+    if(BH_EDITANDO_ID === l.id){
+      const debitoInputVal = l.debitoISO || "";
+      const creditoInputVal = l.creditoISO || "";
+      html += `<tr style="background:#1f2f45;">
+        <td>${tagGrupo}</td><td>${l.chapa||"-"}</td><td>${l.nome}</td>
+        <td><input type="date" id="bh-edit-debito-${l.id}" value="${debitoInputVal}" style="background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:3px 4px;font-size:.72rem;width:120px;">${!l.debitoISO && l.debitoTexto?`<br><span style="color:var(--muted);font-size:.6rem;">original: ${l.debitoTexto}</span>`:""}</td>
+        <td><input type="date" id="bh-edit-credito-${l.id}" value="${creditoInputVal}" style="background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:3px 4px;font-size:.72rem;width:120px;">${!l.creditoISO && l.creditoTexto?`<br><span style="color:var(--muted);font-size:.6rem;">original: ${l.creditoTexto}</span>`:""}</td>
+        <td style="font-size:.62rem;color:var(--muted);">deixe crédito em branco pra voltar a Pendente</td>
+        <td style="display:flex;gap:4px;align-items:center;">
+          <button class="add-btn" style="padding:3px 8px;font-size:.65rem;" onclick="salvarEdicaoBH(${l.id})">💾 Salvar</button>
+          <button class="undo-btn" style="margin:0;padding:3px 8px;font-size:.65rem;" onclick="cancelarEdicaoBH()">✖️</button>
+        </td>
+      </tr>`;
+      return;
+    }
+
+    const statusBadge = temCredito ? `<span class="badge-quitado">Quitado</span>` : `<span class="badge-pendente">Pendente</span>`;
+    const acaoQuitar = !temCredito ? `<button class="add-btn" style="padding:3px 8px;font-size:.65rem;" onclick="quitarBancoHoras(${l.id})">✅ Quitar hoje</button>` : "";
+    html += `<tr><td>${tagGrupo}</td><td>${l.chapa||"-"}</td><td>${l.nome}${l.obs?`<br><span style="color:var(--muted);font-size:.65rem;">${l.obs}</span>`:""}</td><td>${debitoTxt}${debitoAviso}</td><td>${creditoTxt}${creditoAviso}</td><td>${statusBadge}</td><td style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;">${acaoQuitar}<span class="del-btn" style="cursor:pointer;" onclick="editarLancamentoBH(${l.id})">✏️</span><span class="del-btn" onclick="removerBancoHoras(${l.id})">✕</span></td></tr>`;
+  });
+  html += `</tbody></table></div>`;
+  return html;
+}
+
+function bancoHorasSubImportarHTML(){
+  let html = `<p style="color:var(--muted);font-size:.72rem;margin:0 0 10px;">Envie uma planilha (.xlsx, .xls ou .csv) com os lançamentos de banco de horas, no formato: <b>MATRICULA</b>, <b>NOME</b>, <b>DÉBITO</b> (data), <b>CRÉDITO</b> (data). Cada data preenchida numa linha vira 1 dia de lançamento — se a linha tiver data nas duas colunas, viram 2 lançamentos (1 débito + 1 crédito).</p>`;
+  html += `<input type="file" id="input-importar-bh" accept=".xlsx,.xls,.xlsm,.csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" onchange="analisarArquivoBancoHoras(event)" style="margin-bottom:10px;">`;
+  html += `<div id="resultado-importar-bh"></div>`;
+  return html;
+}
+
+let IMPORTACAO_BH_PENDENTE = null;
+
+// Converte o valor de uma célula (Date do Excel, texto "dd/mm/aa", "dd/mm/aaaa",
+// "aaaa-mm-dd", ou um texto qualquer tipo "banco de horas"/"B/h débito") numa
+// data ISO (aaaa-mm-dd). Se não for uma data reconhecível, usa hoje e devolve
+// o texto original como observação.
+function parseCelulaDataOuTexto(v){
+  if(v === null || v === undefined || String(v).trim() === "") return null;
+  if(v instanceof Date && !isNaN(v)){
+    return { data: new Date(v.getTime() - v.getTimezoneOffset()*60000).toISOString().slice(0,10), obs: "" };
+  }
+  const s = String(v).trim();
+  const m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+  if(m){
+    let [,d,mo,y] = m;
+    if(y.length===2) y = "20"+y;
+    return { data: `${y}-${mo.padStart(2,"0")}-${d.padStart(2,"0")}`, obs: "" };
+  }
+  if(/^\d{4}-\d{2}-\d{2}/.test(s)) return { data: s.slice(0,10), obs: "" };
+  // não é uma data reconhecível (ex: "B/h débito", "banco de horas") — usa
+  // hoje como data e guarda o texto original como motivo
+  return { data: new Date().toISOString().slice(0,10), obs: s };
+}
+
+function analisarArquivoBancoHoras(event){
+  const file = event.target.files[0];
+  IMPORTACAO_BH_PENDENTE = null;
+  const caixa = document.getElementById("resultado-importar-bh");
+  if(!file) return;
+  if(caixa) caixa.innerHTML = `<p style="color:var(--muted);font-size:.72rem;">Lendo arquivo...</p>`;
+
+  if(typeof XLSX === "undefined"){
+    if(caixa) caixa.innerHTML = `<p style="color:#e88;font-size:.72rem;">⚠️ Não consegui carregar o leitor de planilhas (sem internet no momento?). Tente de novo.</p>`;
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = function(e){
+    try{
+      const dados = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(dados, {type:"array", cellDates:true});
+      const nomeAba = workbook.SheetNames[0];
+      const linhas = XLSX.utils.sheet_to_json(workbook.Sheets[nomeAba], {header:1, defval:""});
+
+      // acha a linha de cabeçalho procurando alguma coluna reconhecível
+      let idxCab = -1;
+      for(let i=0; i<Math.min(20, linhas.length); i++){
+        const linha = linhas[i];
+        const tem = linha.some(c=>bateColunaExcel(c, ["chapa","matricula","mat"])) ||
+                    linha.some(c=>bateColunaExcel(c, ["nome","fundidor","funcionario","colaborador"])) ||
+                    linha.some(c=>bateColunaExcel(c, ["debito"])) ||
+                    linha.some(c=>bateColunaExcel(c, ["credito"]));
+        if(tem){ idxCab = i; break; }
+      }
+      if(idxCab === -1){
+        renderizarResultadoImportacaoBH({erro: "Não encontrei uma linha de cabeçalho reconhecível (Matrícula, Nome, Débito ou Crédito). Confira o arquivo."});
+        return;
+      }
+
+      const cab = linhas[idxCab];
+      const idxChapa = cab.findIndex(c=>bateColunaExcel(c, ["chapa","matricula","mat"]));
+      const idxNome = cab.findIndex(c=>bateColunaExcel(c, ["nome","fundidor","funcionario","colaborador"]));
+      const idxDebito = cab.findIndex(c=>bateColunaExcel(c, ["debito"]));
+      const idxCredito = cab.findIndex(c=>bateColunaExcel(c, ["credito"]));
+
+      if(idxChapa === -1 && idxNome === -1){
+        renderizarResultadoImportacaoBH({erro: "Não achei coluna de Matrícula/Chapa nem de Nome no cabeçalho identificado."});
+        return;
+      }
+      if(idxDebito === -1){
+        renderizarResultadoImportacaoBH({erro: "Não achei a coluna de Débito no cabeçalho identificado."});
+        return;
+      }
+
+      const validos = [];
+      const semPessoa = [];
+      const ambiguos = [];
+      const semDebito = [];
+
+      for(let i=idxCab+1; i<linhas.length; i++){
+        const linha = linhas[i];
+        if(!linha || linha.every(c=>String(c).trim()==="")) continue;
+
+        const valChapa = idxChapa>-1 ? String(linha[idxChapa]||"").trim() : "";
+        const valNome = idxNome>-1 ? String(linha[idxNome]||"").trim() : "";
+        const identificador = valChapa || valNome;
+        const rotulo = valChapa && valNome ? `${valChapa} — ${valNome}` : identificador;
+        if(!identificador) continue;
+
+        const celDebito = parseCelulaDataOuTexto(linha[idxDebito]);
+        if(!celDebito){ semDebito.push(rotulo); continue; }
+
+        // Tenta resolver pela chapa primeiro; se não achar, tenta pelo nome de
+        // verdade (nunca usa os dígitos da chapa como se fossem um nome).
+        let resultado = valChapa ? resolverChapaOuNomeAtestado(valChapa) : {};
+        if(!resultado.chapa && !resultado.nome && !resultado.ambiguo && valNome){
+          resultado = resolverChapaOuNomeAtestado(valNome);
+        }
+        if(resultado.ambiguo){ ambiguos.push(rotulo); continue; }
+        if(!resultado.chapa && !resultado.nome){ semPessoa.push(rotulo); continue; }
+
+        let chapa, nome, grupo;
+        if(resultado.semChapa){
+          chapa = ""; nome = resultado.nome; grupo = resultado.grupo || null;
+        } else {
+          chapa = resultado.chapa;
+          nome = NOME_POR_CHAPA[chapa] || NOME_POR_CHAPA_ORIGINAL[chapa] || valNome || chapa;
+          grupo = GRUPO_ORIGINAL_POR_CHAPA[chapa] || null;
+        }
+
+        const celCredito = idxCredito > -1 ? parseCelulaDataOuTexto(linha[idxCredito]) : null;
+
+        validos.push({
+          id: Date.now()+i, chapa, nome, grupo,
+          debitoISO: celDebito.data, debitoTexto: celDebito.obs,
+          creditoISO: celCredito ? celCredito.data : null,
+          creditoTexto: celCredito ? celCredito.obs : "",
+          obs: ""
+        });
+      }
+
+      IMPORTACAO_BH_PENDENTE = validos;
+      renderizarResultadoImportacaoBH({validos, semPessoa, ambiguos, semDebito});
+    }catch(err){
+      renderizarResultadoImportacaoBH({erro: "Erro ao ler o arquivo: " + (err && err.message ? err.message : err)});
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function renderizarResultadoImportacaoBH(r){
+  const caixa = document.getElementById("resultado-importar-bh");
+  if(!caixa) return;
+  if(r.erro){
+    caixa.innerHTML = `<p style="color:#e88;font-size:.75rem;">⚠️ ${r.erro}</p>`;
+    return;
+  }
+  let html = `<div style="background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:10px 12px;margin-top:8px;font-size:.75rem;line-height:1.6;">`;
+  html += `<b style="color:#6fdc8c;">✅ ${r.validos.length} lançamento(s) prontos pra importar.</b>`;
+  if(r.semPessoa.length) html += `<br><span style="color:#e88;">⚠️ Não encontrei no Banco de Dados: ${r.semPessoa.join(", ")}</span>`;
+  if(r.ambiguos.length) html += `<br><span style="color:#e88;">⚠️ Nome ambíguo (mais de uma pessoa bate): ${r.ambiguos.join(", ")}</span>`;
+  if(r.semDebito.length) html += `<br><span style="color:#e88;">⚠️ Sem data de débito: ${r.semDebito.join(", ")}</span>`;
+  html += `</div>`;
+  if(r.validos.length > 0){
+    html += tabelaBancoHorasHTML(r.validos.slice(0,30)).replace(/onclick="(quitarBancoHoras|removerBancoHoras|editarLancamentoBH)\([^)]*\)"/g, 'onclick="" style="visibility:hidden;"');
+    if(r.validos.length > 30) html += `<p style="color:var(--muted);font-size:.68rem;">...e mais ${r.validos.length-30}.</p>`;
+    html += `<button class="add-btn" style="margin-top:8px;" onclick="confirmarImportacaoBancoHoras()">✅ Importar ${r.validos.length} lançamento(s)</button>`;
+  }
+  caixa.innerHTML = html;
+}
+
+function confirmarImportacaoBancoHoras(){
+  if(!IMPORTACAO_BH_PENDENTE || IMPORTACAO_BH_PENDENTE.length === 0) return;
+  BANCO_HORAS = BANCO_HORAS.concat(IMPORTACAO_BH_PENDENTE);
+  salvarBancoHoras();
+  const qtd = IMPORTACAO_BH_PENDENTE.length;
+  IMPORTACAO_BH_PENDENTE = null;
+  const inputFile = document.getElementById("input-importar-bh");
+  if(inputFile) inputFile.value = "";
+  const caixa = document.getElementById("resultado-importar-bh");
+  if(caixa) caixa.innerHTML = `<p style="color:#6fdc8c;font-size:.75rem;">✅ ${qtd} lançamento(s) importado(s) com sucesso!</p>`;
+  BANCO_HORAS_SUBABA = "relatorio";
+  renderAll();
+}
+
+function copiarWhatsAppSaldoBancoHoras(){
+  const saldos = saldosBancoHoras().slice().sort((a,b)=>b.pendentes - a.pendentes);
+  let texto = "*🕐 Saldo do Banco de Horas*\n```\n";
+  if(saldos.length === 0) texto += "Nenhum lançamento ainda.\n";
+  saldos.forEach(s=>{
+    texto += `${s.grupo||"?"} ${s.chapa||"-"} ${s.nome}: ${s.pendentes} pendente(s)\n`;
+  });
+  texto += "```";
+  copiarTexto(texto, "copy-feedback-bh-saldo");
+}
+
+function copiarWhatsAppRelatorioBancoHoras(){
+  const historico = BANCO_HORAS.slice().sort((a,b)=>(b.debitoISO||"").localeCompare(a.debitoISO||"") || b.id-a.id);
+  let texto = "*🕐 Relatório do Banco de Horas*\n```\n";
+  if(historico.length === 0) texto += "Nenhum lançamento ainda.\n";
+  historico.forEach(l=>{
+    const debitoTxt = textoExibicaoBH(l.debitoISO, l.debitoTexto);
+    const temCredito = !!(l.creditoISO || l.creditoTexto);
+    const status = temCredito ? "Quitado" : "Pendente";
+    texto += `${l.grupo||"?"} ${l.nome} — débito ${debitoTxt} — ${status}\n`;
+  });
+  texto += "```";
+  copiarTexto(texto, "copy-feedback-bh-relatorio");
 }
 
 // Ajudantes cadastrados no Banco de Dados pra um grupo — lido ao vivo, então
@@ -3455,11 +3951,12 @@ let SECOES = [
   {id:"resumo", label:"Resumo", render:resumoHTML},
   {id:"menu", label:"📑 Menu", render:menuHTML},
   ...gerarSecoesEscalasDatadas(),
+  {id:"bancohoras", label:"🕐 Banco de Horas", render:bancoHorasHTML},
   {id:"original", label:"Dados Originais", render:dadosOriginaisHTML},
   {id:"bancodados", label:"Banco de Dados", render:bancoDadosHTML},
   {id:"calendario", label:"Calendário de Folgas", render:calendarioFolgasHTML},
   {id:"ajudantes", label:"Lista Ajudantes", render:ajudantesListaHTML},
-  {id:"atestados", label:"Atestados e Compensações", render:atestadosHTML},
+  {id:"atestados", label:"Atestados", render:atestadosHTML},
   {id:"importarexcel", label:"Importar Excel", render:importarExcelHTML},
 ];
 
