@@ -74,6 +74,10 @@
   .chapa-cell{border-bottom:1px dashed #6a7484;cursor:text;padding:2px 4px;border-radius:3px;display:inline-block;min-width:22px;min-height:16px;font-size:1.05rem;font-weight:700;}
   .chapa-cell:focus{outline:2px solid #5b8bd0;background:#22293a;}
   .chapa-highlight{background:#ffe066 !important;color:#111 !important;outline:2px solid #d9b968;font-weight:900;}
+  .chapa-duplicada{background:#5a1f1f !important;color:#ff9d9d !important;outline:2px solid #e04b4b;font-weight:900;animation:piscaDuplicada 1.4s ease-in-out infinite;}
+  @keyframes piscaDuplicada{0%,100%{outline-color:#e04b4b;}50%{outline-color:#ff9d9d;}}
+  .aviso-duplicada{background:#3a1f1f;border:1px solid #5a3333;border-left:3px solid #e04b4b;border-radius:6px;padding:8px 12px;margin-bottom:10px;font-size:.75rem;color:#ff9d9d;line-height:1.5;}
+  .aviso-duplicada b{color:#ffb3b3;}
   .chapa-hint{color:var(--muted);font-size:.62rem;margin:8px 0 10px;line-height:1.3;}
   .reset-btn{background:#3a2323;color:#e88;border:1px solid #5a3333;padding:10px 12px;border-radius:6px;cursor:pointer;font-size:.75rem;margin-bottom:10px;flex:1;}
   .undo-btn{background:#1f2f45;color:#8fb4dc;border:1px solid #2f4e6b;padding:10px 12px;border-radius:6px;cursor:pointer;font-size:.75rem;margin-bottom:10px;flex:1;}
@@ -1186,12 +1190,31 @@ function escalaHTML(g, chave, dataInfo){
   </div>`;
 
   html += `<div class="table-wrap"><table><thead><tr><th>Banca</th><th>Chapa</th><th>Fundidor</th><th>Situação</th><th>Capacidade</th></tr></thead><tbody>`;
+
+  // ---- Detecção automática de chapa duplicada dentro desta escala ----
+  // (roda toda vez que a escala é renderizada, sem precisar clicar em nada)
+  const contagemChapas = {};
+  eff.forEach(row=>{
+    const c = (row.chapa||"").toString().trim();
+    if(!c) return;
+    if(!contagemChapas[c]) contagemChapas[c] = [];
+    contagemChapas[c].push(row.banca);
+  });
+  const chapasDuplicadas = Object.keys(contagemChapas).filter(c=>contagemChapas[c].length > 1);
+  if(chapasDuplicadas.length > 0){
+    const nomeDup = c => NOME_POR_CHAPA[c] || NOME_POR_CHAPA_ORIGINAL[c] || c;
+    html = html.replace('<div class="table-wrap">', `<div class="aviso-duplicada">⚠️ <b>Chapa duplicada nesta escala:</b><br>${
+      chapasDuplicadas.map(c=>`Chapa ${c} (${nomeDup(c)}) em: ${contagemChapas[c].join(", ")}`).join("<br>")
+    }</div><div class="table-wrap">`);
+  }
+
   eff.forEach(row=>{
     const {banca, chapa, nome, sit, cap} = row;
     const atestado = atestadoAtivoNaEscala(chapa, g, dataAlvo);
     const debito = !atestado ? debitoAtivoNaEscala(chapa, g, dataAlvo) : null;
     const cls = atestado ? "row-Atestado" : debito ? "row-Atestado" : (sit==="Fixo"?"row-Fixo":sit==="Folguista"?"row-Folguista":sit==="Ajustado"?"row-Folguista":sit==="Parada"?"row-Parada":"row-Semfolguista");
-    const chapaCell = `<span class="chapa-cell" contenteditable="true" data-escala="${chave}" data-banca="${banca}">${chapa}</span>`;
+    const duplicada = chapa && chapasDuplicadas.includes((chapa||"").toString().trim());
+    const chapaCell = `<span class="chapa-cell${duplicada?" chapa-duplicada":""}" contenteditable="true" data-escala="${chave}" data-banca="${banca}">${chapa}</span>`;
     const situacaoTexto = atestado
       ? `🏥 Atestado<br>(volta ${formatarDataBR(dataRetornoAtestado(atestado))})`
       : debito
@@ -1278,9 +1301,10 @@ function resumoHTML(){
 
 function reordenarAbasHTML(){
   let html = `<h2 style="margin-top:16px;">🔀 Reordenar abas</h2>
-  <p style="color:var(--muted);font-size:.7rem;margin:0 0 8px;">Segure a alça ⠿⠿ e arraste pra cima/baixo pra mudar a ordem das abas. Fica salvo neste dispositivo.</p>`;
+  <p style="color:var(--muted);font-size:.7rem;margin:0 0 4px;">📌 Resumo, Menu e as escalas F/H/B/D ficam sempre fixas no início, nessa ordem.</p>
+  <p style="color:var(--muted);font-size:.7rem;margin:0 0 8px;">Segure a alça ⠿⠿ e arraste pra cima/baixo pra mudar a ordem das demais abas. Fica salvo neste dispositivo.</p>`;
   html += `<div id="lista-reordenar-abas" data-tipo="abas">`;
-  secoesOrdenadas().forEach((s,idx)=>{
+  secoesOrdenadas().filter(s=>!ABAS_FIXAS_INICIO.includes(s.id)).forEach((s,idx)=>{
     html += `<div class="botao-arrastavel" data-btn-id="${s.id}" style="display:flex;align-items:center;gap:4px;margin-bottom:4px;background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:2px 8px;">
       <span class="alca-arrastar" data-btn-id="${s.id}" style="cursor:grab;color:var(--muted);padding:8px 8px;touch-action:none;user-select:none;font-size:1rem;">⠿⠿</span>
       <span style="color:var(--muted);width:1.8rem;">${idx+1}º</span>
@@ -3428,9 +3452,9 @@ function menuHTML(){
 }
 
 let SECOES = [
+  {id:"resumo", label:"Resumo", render:resumoHTML},
   {id:"menu", label:"📑 Menu", render:menuHTML},
   ...gerarSecoesEscalasDatadas(),
-  {id:"resumo", label:"Resumo", render:resumoHTML},
   {id:"original", label:"Dados Originais", render:dadosOriginaisHTML},
   {id:"bancodados", label:"Banco de Dados", render:bancoDadosHTML},
   {id:"calendario", label:"Calendário de Folgas", render:calendarioFolgasHTML},
@@ -3438,6 +3462,12 @@ let SECOES = [
   {id:"atestados", label:"Atestados e Compensações", render:atestadosHTML},
   {id:"importarexcel", label:"Importar Excel", render:importarExcelHTML},
 ];
+
+// ---- Abas fixas: Resumo, Menu e as escalas F/H/B/D sempre ficam nessa
+//      ordem, logo no início. Só as demais abas podem ser arrastadas. ----
+const ABAS_FIXAS_INICIO = SECOES
+  .filter(s => s.id === "resumo" || s.id === "menu" || /^[FHBD]_\d{8}$/.test(s.id))
+  .map(s => s.id);
 
 // ---- Diagnostico: verifica se o navegador realmente permite salvar dados ----
 (function checarArmazenamento(){
@@ -3468,7 +3498,15 @@ let SECOES = [
 const tabsEl = document.getElementById("tabs");
 const mainEl = document.getElementById("main");
 
-// ---- Ordem das abas (personalizável pelo usuário) ----
+// Junta o bloco fixo (Resumo, Menu, escalas F/H/B/D) sempre no início, na
+// ordem definida em ABAS_FIXAS_INICIO, seguido pelas demais abas na ordem
+// dada (ignorando qualquer aba fixa que apareça em "idsLivres").
+function ordenarComFixas(idsLivres){
+  const resto = idsLivres.filter(id => !ABAS_FIXAS_INICIO.includes(id));
+  return ABAS_FIXAS_INICIO.concat(resto);
+}
+
+// ---- Ordem das abas (personalizável pelo usuário, exceto as fixas) ----
 let ORDEM_ABAS = SECOES.map(s=>s.id);
 try{
   const salva = JSON.parse(localStorage.getItem("ordemAbas") || "null");
@@ -3476,7 +3514,7 @@ try{
     // mantém só ids que ainda existem no app, e adiciona no fim qualquer aba nova que não estava salva
     const validos = salva.filter(id => SECOES.some(s=>s.id===id));
     const faltando = SECOES.map(s=>s.id).filter(id => !validos.includes(id));
-    ORDEM_ABAS = validos.concat(faltando);
+    ORDEM_ABAS = ordenarComFixas(validos.concat(faltando));
   }
 }catch(e){}
 
@@ -3583,7 +3621,7 @@ function terminarArrastoBotao(e){
   ARRASTO_BOTAO_ATUAL = null;
 
   if(container.dataset.tipo === "abas"){
-    ORDEM_ABAS = novaOrdem;
+    ORDEM_ABAS = ordenarComFixas(novaOrdem);
     salvarOrdemAbas();
     reconstruirNav();
     return;
