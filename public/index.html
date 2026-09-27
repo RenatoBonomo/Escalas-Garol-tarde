@@ -49,6 +49,7 @@
   .tag-F{background:var(--F);color:#fff;} .tag-H{background:var(--H);color:#fff;}
   .tag-B{background:var(--B);color:#fff;} .tag-D{background:var(--D);color:#fff;}
   .tag-Especial{background:var(--special);}
+  .tag-EXTRA{background:var(--special);color:#111;}
   .table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:8px 0 16px;border-radius:5px;}
   table{width:100%;min-width:320px;border-collapse:collapse;font-size:.64rem;}
   th,td{padding:4px 5px;border:1px solid var(--border);text-align:left;white-space:nowrap;}
@@ -73,6 +74,7 @@
   .ajrow-H{background:rgba(201,107,107,.18);}
   .ajrow-B{background:rgba(127,166,80,.18);}
   .ajrow-D{background:rgba(217,138,61,.18);}
+  .ajrow-EXTRA{background:rgba(201,180,88,.18);}
 
   .filtro-letras{display:flex;gap:4px;margin-bottom:10px;flex-wrap:wrap;}
   .filtro-btn{background:var(--panel2);color:var(--text);border:1px solid var(--border);padding:6px 12px;border-radius:5px;cursor:pointer;font-size:.72rem;font-weight:600;}
@@ -899,7 +901,7 @@ function textoWhatsAppAjudantes(){
   });
   gruposExtraForaDoFiltro.forEach(g=>{
     ajExtrasSemDuplicar(g).forEach(nome=>{
-      texto += `${g} ${nome} (extra)\n`;
+      texto += `${g} ${nome} (incluído)\n`;
     });
   });
   texto += "```\n";
@@ -1123,32 +1125,54 @@ function gerarImagemEscala(g, chave){
 
 // Desenha a lista de ajudantes (agrupada por letra, respeitando o filtro ativo) num canvas
 function gerarImagemAjudantes(){
-  const grupos = ["F","H","B","D"].filter(g=>ajudanteFiltro.includes(g));
-  // Mesmo raciocínio do texto do WhatsApp: um grupo desmarcado no filtro
-  // (normalmente a letra de folga do dia) mas com extra lançado ali (ex:
-  // alguém que veio trabalhar mesmo de folga) precisa aparecer na imagem
-  // também, senão o extra sai invisível do compartilhamento.
-  const gruposExtraForaDoFiltro = ["F","H","B","D"].filter(g=>!ajudanteFiltro.includes(g) && ajExtrasSemDuplicar(g).length>0);
-  // Removidos só da lista (continuam no Banco de Dados) — o compartilhamento
-  // precisa deixar claro quem foi tirado, senão parece que essas pessoas
-  // simplesmente não existem na escala.
-  const removidosNoFiltro = [];
-  grupos.forEach(g=>(AJUDANTES_REMOVIDOS[g]||[]).forEach(nome=>removidosNoFiltro.push({g, nome})));
-  const corGrupo = {F:"#5b8bd0", H:"#c96b6b", B:"#7fa650", D:"#d98a3d"};
+  // A imagem compartilhada precisa espelhar exatamente o que está na tela:
+  // no modo "Extra" (AJUDANTE_SO_EXTRA), só os extras lançados; no modo
+  // normal, os grupos marcados no filtro + o grupo "Extra" (sem escala),
+  // que sempre aparece por último igual na Lista de Ajudantes.
+  let grupos, gruposExtraForaDoFiltro, removidosNoFiltro, dados, tituloImagem;
+
+  if(AJUDANTE_SO_EXTRA){
+    tituloImagem = "Lista de Ajudantes — Incluído";
+    grupos = [];
+    gruposExtraForaDoFiltro = [];
+    removidosNoFiltro = [];
+    dados = ["F","H","B","D","EXTRA"].map(g=>{
+      const nomes = ajExtrasSemDuplicar(g);
+      return {g, nomes};
+    }).filter(d=>d.nomes.length>0);
+  } else {
+    tituloImagem = "Lista de Ajudantes";
+    grupos = ["F","H","B","D"].filter(g=>ajudanteFiltro.includes(g));
+    // Mesmo raciocínio do texto do WhatsApp: um grupo desmarcado no filtro
+    // (normalmente a letra de folga do dia) mas com extra lançado ali (ex:
+    // alguém que veio trabalhar mesmo de folga) precisa aparecer na imagem
+    // também, senão o extra sai invisível do compartilhamento.
+    gruposExtraForaDoFiltro = ["F","H","B","D"].filter(g=>!ajudanteFiltro.includes(g) && ajExtrasSemDuplicar(g).length>0);
+    // Removidos só da lista (continuam no Banco de Dados) — o compartilhamento
+    // precisa deixar claro quem foi tirado, senão parece que essas pessoas
+    // simplesmente não existem na escala.
+    removidosNoFiltro = [];
+    grupos.forEach(g=>(AJUDANTES_REMOVIDOS[g]||[]).forEach(nome=>removidosNoFiltro.push({g, nome})));
+
+    dados = grupos.map(g=>{
+      const nomes = ajudantesDoGrupo(g);
+      return {g, nomes};
+    }).concat(gruposExtraForaDoFiltro.map(g=>{
+      const nomes = ajExtrasSemDuplicar(g);
+      return {g, nomes};
+    }));
+    // Grupo "Extra" (sem escala) — sempre entra por último, igual na tela.
+    const extrasSemGrupo = ajExtrasSemDuplicar("EXTRA");
+    if(extrasSemGrupo.length > 0) dados.push({g:"EXTRA", nomes: extrasSemGrupo});
+  }
+
+  let totalLinhas = 0;
+  dados.forEach(d=>{ totalLinhas += d.nomes.length; });
+
+  const corGrupo = {F:"#5b8bd0", H:"#c96b6b", B:"#7fa650", D:"#d98a3d", EXTRA:"#c9b458"};
   const larguraCanvas = 460, margem = 24;
   const alturaLinha = 34, alturaGrupoHeader = 40, alturaCabecalho = 60, alturaRodape = 50;
   const alturaRemovidosHeader = removidosNoFiltro.length > 0 ? 40 : 0;
-
-  let totalLinhas = 0;
-  const dados = grupos.map(g=>{
-    const nomes = ajudantesDoGrupo(g);
-    totalLinhas += nomes.length;
-    return {g, nomes};
-  }).concat(gruposExtraForaDoFiltro.map(g=>{
-    const nomes = ajExtrasSemDuplicar(g);
-    totalLinhas += nomes.length;
-    return {g, nomes};
-  }));
 
   const alturaCanvas = alturaCabecalho + dados.length*alturaGrupoHeader + totalLinhas*alturaLinha
     + alturaRemovidosHeader + removidosNoFiltro.length*alturaLinha
@@ -1169,23 +1193,25 @@ function gerarImagemAjudantes(){
   ctx.font = "bold 24px Arial";
   ctx.textAlign = "left";
   ctx.textBaseline = "middle";
-  ctx.fillText("Lista de Ajudantes", margem, y + 12);
+  ctx.fillText(tituloImagem, margem, y + 12);
   ctx.fillStyle = "#9aa0aa";
   ctx.font = "16px Arial";
   ctx.fillText(new Date().toLocaleDateString("pt-BR"), margem, y + 34);
   y += 60;
 
   dados.forEach(({g, nomes})=>{
+    const tagBox = g==="EXTRA" ? "In" : g;
+    const tituloGrupo = g==="EXTRA" ? "Incluído (sem escala)" : `Grupo ${g}`;
     ctx.fillStyle = corGrupo[g] || "#5b8bd0";
     ctx.fillRect(margem, y, 30, 30);
     ctx.fillStyle = "#fff";
-    ctx.font = "bold 18px Arial";
+    ctx.font = "bold 15px Arial";
     ctx.textAlign = "center";
-    ctx.fillText(g, margem+15, y+15);
+    ctx.fillText(tagBox, margem+15, y+15);
     ctx.fillStyle = "#e8e8ea";
     ctx.font = "bold 17px Arial";
     ctx.textAlign = "left";
-    ctx.fillText(`Grupo ${g} (${nomes.length})`, margem+40, y+15);
+    ctx.fillText(`${tituloGrupo} (${nomes.length})`, margem+40, y+15);
     y += 40;
 
     ctx.font = "17px Arial";
@@ -1647,8 +1673,11 @@ function resumoHTML(){
 
   html += `<div class="table-wrap"><table><thead><tr><th>Ajudantes</th><th>Quantidade</th></tr></thead><tbody>`;
   let totalAjudantesResumo = 0;
+  // Só o que está cadastrado no Banco de Dados — sem contar "extras"
+  // lançados na Lista de Ajudantes (inclusive "extra (folga)"), que são um
+  // ajuste manual do dia e não fazem parte do quadro fixo cadastrado.
   ["F","H","B","D"].forEach(g=>{
-    const n = ajudantesDoGrupo(g).length;
+    const n = ajudantesDoBancoDados(g).length;
     totalAjudantesResumo += n;
     html += `<tr class="ajrow-${g}"><td><span class="tag tag-${g}">${g}</span></td><td>${n}</td></tr>`;
   });
@@ -1705,38 +1734,43 @@ function reordenarAbasHTML(){
   return html;
 }
 
+// "Fundidores por grupo" — calculado só a partir do Banco de Dados (não mais
+// de Dados Originais/FIXO_DATA/FOLGUISTA_DATA), pra sempre bater com quem
+// está cadastrado lá. "Fixos" = tem uma banca só cadastrada no campo
+// Banca(s); "Folguistas" = tem mais de uma (separadas por vírgula); "Sem
+// banca" = cadastrado como fundidor mas ainda sem banca vinculada.
 function grupoHTML(){
-  const fixosPorGrupo = {F:0,H:0,B:0,D:0};
-  Object.values(FIXO_DATA).forEach(f=>{
-    if(f.grupo && fixosPorGrupo.hasOwnProperty(f.grupo)) fixosPorGrupo[f.grupo]++;
-  });
-
-  const folguistasUnicos = {};
-  Object.values(FOLGUISTA_DATA).forEach(f=>{
-    if(f.nome && f.chapa) folguistasUnicos[f.nome.toUpperCase()] = f.nome;
-  });
-  const folguistasPorGrupo = {F:0,H:0,B:0,D:0};
-  let especiais = 0;
-  Object.values(folguistasUnicos).forEach(nome=>{
-    const g = grupoPessoalPorNome(nome);
-    if(g && folguistasPorGrupo.hasOwnProperty(g)) folguistasPorGrupo[g]++;
-    else especiais++;
-  });
+  const contagem = {
+    F:{fixos:0,folguistas:0,semBanca:0}, H:{fixos:0,folguistas:0,semBanca:0},
+    B:{fixos:0,folguistas:0,semBanca:0}, D:{fixos:0,folguistas:0,semBanca:0}
+  };
+  BANCO_DADOS_LISTA
+    .filter(p=>p.tipo==="Fundidor" || p.tipo==="Fundidor/Ajudante" || p.tipo==="Fundidor em Treinamento")
+    .forEach(p=>{
+      if(!contagem[p.grupo]) return;
+      const banca = (p.banca||"").trim();
+      if(!banca) contagem[p.grupo].semBanca++;
+      else if(banca.includes(",")) contagem[p.grupo].folguistas++;
+      else contagem[p.grupo].fixos++;
+    });
 
   let html = `<h2>Fundidores por grupo</h2>`;
+  html += `<p style="color:var(--muted);font-size:.72rem;margin:0 0 10px;">Calculado a partir do Banco de Dados (campo Banca(s) de cada fundidor).</p>`;
   html += `<div class="table-wrap"><table><thead><tr><th>Grupo</th><th>Fixos</th><th>Folguistas</th><th>Total</th></tr></thead><tbody>`;
-  let totalFixos = 0, totalFolg = 0, totalGeral = 0;
+  let totalFixos = 0, totalFolg = 0, totalSemBanca = 0, totalGeral = 0;
   ["F","H","B","D"].forEach(g=>{
-    const total = fixosPorGrupo[g] + folguistasPorGrupo[g];
-    totalFixos += fixosPorGrupo[g];
-    totalFolg += folguistasPorGrupo[g];
+    const c = contagem[g];
+    const total = c.fixos + c.folguistas + c.semBanca;
+    totalFixos += c.fixos;
+    totalFolg += c.folguistas;
+    totalSemBanca += c.semBanca;
     totalGeral += total;
-    html += `<tr class="ajrow-${g}"><td><span class="tag tag-${g}">${g}</span></td><td>${fixosPorGrupo[g]}</td><td>${folguistasPorGrupo[g]}</td><td><b>${total}</b></td></tr>`;
+    html += `<tr class="ajrow-${g}"><td><span class="tag tag-${g}">${g}</span></td><td>${c.fixos}</td><td>${c.folguistas}</td><td><b>${total}</b></td></tr>`;
   });
   html += `<tr><td><b>Total</b></td><td><b>${totalFixos}</b></td><td><b>${totalFolg}</b></td><td><b>${totalGeral}</b></td></tr>`;
   html += `</tbody></table></div>`;
-  if(especiais > 0){
-    html += `<p><i>${especiais} folguista(s) com grupo "Especial" (sem F/H/B/D) não entram nessa contagem.</i></p>`;
+  if(totalSemBanca > 0){
+    html += `<p><i>${totalSemBanca} fundidor(es) ainda sem banca cadastrada no Banco de Dados — não entram em Fixos/Folguistas, mas contam no Total.</i></p>`;
   }
   return html;
 }
@@ -1746,12 +1780,19 @@ function salvarListaExtras(){
 }
 
 let ajudanteFiltro = ["F","H","B","D"];
+// Modo "Extra" da Lista de Ajudantes — quando ativo, mostra só quem foi
+// lançado como extra (em qualquer uma das 4 escalas), ignorando o filtro
+// F/H/B/D normal. Sai desse modo sozinho ao clicar numa letra ou em "Todos".
+let AJUDANTE_SO_EXTRA = false;
 
 let AJ_EXTRAS = {};
 try {
   AJ_EXTRAS = JSON.parse(localStorage.getItem("ajudanteExtras") || "{}");
 } catch(e){ AJ_EXTRAS = {}; }
-["F","H","B","D"].forEach(g=>{ if(!AJ_EXTRAS[g]) AJ_EXTRAS[g] = []; });
+// "EXTRA" não é uma escala (F/H/B/D) de verdade — é o grupo à parte pra quem
+// é lançado como extra sem entrar em nenhuma das 4 escalas, aparecendo como
+// uma seção própria no final da Lista de Ajudantes.
+["F","H","B","D","EXTRA"].forEach(g=>{ if(!AJ_EXTRAS[g]) AJ_EXTRAS[g] = []; });
 
 // Extras adicionados enquanto o PRÓPRIO grupo estava de folga (nomes de
 // AJ_EXTRAS[g] que nasceram durante a janela de folga daquele grupo).
@@ -1763,7 +1804,7 @@ let AJ_EXTRAS_FOLGA = {};
 try {
   AJ_EXTRAS_FOLGA = JSON.parse(localStorage.getItem("ajudanteExtrasFolga") || "{}");
 } catch(e){ AJ_EXTRAS_FOLGA = {}; }
-["F","H","B","D"].forEach(g=>{ if(!AJ_EXTRAS_FOLGA[g]) AJ_EXTRAS_FOLGA[g] = []; });
+["F","H","B","D","EXTRA"].forEach(g=>{ if(!AJ_EXTRAS_FOLGA[g]) AJ_EXTRAS_FOLGA[g] = []; });
 
 function salvarAjudanteExtrasFolga(){
   try{ localStorage.setItem("ajudanteExtrasFolga", JSON.stringify(AJ_EXTRAS_FOLGA)); }catch(e){}
@@ -1786,7 +1827,7 @@ function letraFolgaHoje(){
 function purgarExtrasDeFolgaExpirados(){
   const letraHoje = letraFolgaHoje();
   let mudouExtras = false, mudouFolga = false;
-  ["F","H","B","D"].forEach(g=>{
+  ["F","H","B","D","EXTRA"].forEach(g=>{
     if(g === letraHoje) return; // ainda de folga, mantém
     if(!AJ_EXTRAS_FOLGA[g] || AJ_EXTRAS_FOLGA[g].length===0) return;
     AJ_EXTRAS_FOLGA[g].forEach(nome=>{
@@ -1806,7 +1847,7 @@ function purgarExtrasDeFolgaExpirados(){
 // uma cópia — a marcada "de folga", se alguma cópia estiver marcada assim.
 function removerAjExtrasDuplicados(){
   let mudouExtras = false, mudouFolga = false;
-  ["F","H","B","D"].forEach(g=>{
+  ["F","H","B","D","EXTRA"].forEach(g=>{
     const vistos = [];
     const unicos = [];
     AJ_EXTRAS[g].forEach(nome=>{
@@ -3091,21 +3132,17 @@ function salvarExtras(){
   try{ localStorage.setItem("ajudanteExtras", JSON.stringify(AJ_EXTRAS)); }catch(e){}
 }
 
-function adicionarAjudanteExtra(){
-  const input = document.getElementById("novo-ajudante-nome");
-  const select = document.getElementById("novo-ajudante-grupo");
-  const nome = input.value.trim();
-  const grupo = select.value;
+// Lógica comum de adicionar um extra — usada pelo campo de texto (com
+// autocomplete).
+function _adicionarAjudanteExtraNome(nome, grupo){
+  nome = (nome||"").trim();
   if(!nome) return;
   // Evita duplicar: se esse nome (ignorando maiúscula/acento) já está na
-  // lista de extra desse grupo, não adiciona de novo — só limpa o campo.
-  // Sem isso, mais de um toque em "+ Adicionar" (comum no celular, ex:
-  // enquanto o teclado ainda está fechando) empilhava o mesmo nome várias
-  // vezes, e cada cópia virava uma linha "extra" repetida na lista.
-  if(AJ_EXTRAS[grupo].some(n=>normalizaNome(n)===normalizaNome(nome))){
-    input.value = "";
-    return;
-  }
+  // lista de extra desse grupo, não adiciona de novo. Sem isso, mais de um
+  // toque em "+ Adicionar" (comum no celular, ex: enquanto o teclado ainda
+  // está fechando) empilhava o mesmo nome várias vezes, e cada cópia virava
+  // uma linha "extra" repetida na lista.
+  if(AJ_EXTRAS[grupo].some(n=>normalizaNome(n)===normalizaNome(nome))) return;
   AJ_EXTRAS[grupo].push(nome);
   salvarExtras();
   // Se o grupo escolhido é a letra de folga hoje, esse extra é só pra
@@ -3114,8 +3151,16 @@ function adicionarAjudanteExtra(){
     AJ_EXTRAS_FOLGA[grupo].push(nome);
     salvarAjudanteExtrasFolga();
   }
-  input.value = "";
   document.getElementById("sec-ajudantes").innerHTML = ajudantesListaHTML();
+}
+
+function adicionarAjudanteExtra(){
+  const input = document.getElementById("novo-ajudante-nome");
+  const select = document.getElementById("novo-ajudante-grupo");
+  const nome = input.value.trim();
+  const grupo = select.value;
+  _adicionarAjudanteExtraNome(nome, grupo);
+  input.value = "";
 }
 
 function removerAjudanteExtra(g, idx){
@@ -3138,29 +3183,50 @@ function ajudantesListaHTML(){
     html += `<button class="filtro-btn filtro-${g}${ativo}" onclick="toggleFiltroAjudante('${g}')">${g}</button>`;
   });
   html += `<button class="filtro-btn" onclick="selecionarTodosAjudantes()">Todos</button>`;
+  html += `<button class="filtro-btn${AJUDANTE_SO_EXTRA ? ' active' : ''}" onclick="alternarSoExtraAjudante()">Incluído</button>`;
   html += `</div>`;
 
   const grupos = ["F","H","B","D"].filter(g=>ajudanteFiltro.includes(g));
   const gruposComExtraForaDoFiltro = ["F","H","B","D"].filter(g=>!ajudanteFiltro.includes(g) && ajExtrasSemDuplicar(g).length>0);
+  // Extras lançados no grupo "Extra" (sem escala fixa) — aparecem sempre,
+  // como uma seção própria no final da lista, independente do filtro F/H/B/D.
+  const extrasSemGrupo = ordenarPorNumeroAjudante(ajExtrasSemDuplicar("EXTRA"));
 
   html += `<div class="kpis">`;
-  grupos.forEach(g=>{
-    const ftCount = BANCO_DADOS_LISTA.filter(p=>p.tipo==="Fundidor em Treinamento" && p.grupo===g).length;
-    const ajudanteCount = ajudantesDoBancoDadosVisiveis(g).length + ajExtrasSemDuplicar(g).length;
-    html += `<div class="kpi"><div class="n">${ajudanteCount}</div><div class="l">Ajudantes ${g}${ftCount>0 ? ` (+${ftCount} FT, à parte)` : ""}</div></div>`;
-  });
-  // Grupo desmarcado no filtro (ex: a letra de folga do dia) mas com algum
-  // extra lançado ali (alguém que veio trabalhar mesmo de folga) — mostra
-  // um card à parte pra esse extra não sumir da conta só porque o grupo
-  // dele está desmarcado.
-  gruposComExtraForaDoFiltro.forEach(g=>{
-    const extraCount = ajExtrasSemDuplicar(g).length;
-    html += `<div class="kpi"><div class="n">${extraCount}</div><div class="l">Ajudantes ${g} (extra, folga)</div></div>`;
-  });
-  const totalFT = grupos.reduce((a,g)=>a+BANCO_DADOS_LISTA.filter(p=>p.tipo==="Fundidor em Treinamento" && p.grupo===g).length,0);
-  const total = grupos.reduce((a,g)=>a+ajudantesDoBancoDadosVisiveis(g).length+ajExtrasSemDuplicar(g).length,0)
-    + gruposComExtraForaDoFiltro.reduce((a,g)=>a+ajExtrasSemDuplicar(g).length,0);
-  html += `<div class="kpi"><div class="n">${total}</div><div class="l">Total selecionado${totalFT>0 ? ` (+${totalFT} FT, à parte)` : ""}</div></div>`;
+  if(AJUDANTE_SO_EXTRA){
+    // Modo "Extra": um card por escala, só com quem está lançado como
+    // extra ali (juntando as 4 escalas + o grupo "Extra" sem depender do
+    // filtro F/H/B/D).
+    let totalExtra = 0;
+    ["F","H","B","D","EXTRA"].forEach(g=>{
+      const n = ajExtrasSemDuplicar(g).length;
+      totalExtra += n;
+      html += `<div class="kpi"><div class="n">${n}</div><div class="l">Incluído ${g==="EXTRA" ? "(sem escala)" : g}</div></div>`;
+    });
+    html += `<div class="kpi"><div class="n">${totalExtra}</div><div class="l">Total de incluídos</div></div>`;
+  } else {
+    grupos.forEach(g=>{
+      const ftCount = BANCO_DADOS_LISTA.filter(p=>p.tipo==="Fundidor em Treinamento" && p.grupo===g).length;
+      const ajudanteCount = ajudantesDoBancoDadosVisiveis(g).length + ajExtrasSemDuplicar(g).length;
+      html += `<div class="kpi"><div class="n">${ajudanteCount}</div><div class="l">Ajudantes ${g}${ftCount>0 ? ` (+${ftCount} FT, à parte)` : ""}</div></div>`;
+    });
+    // Grupo desmarcado no filtro (ex: a letra de folga do dia) mas com algum
+    // extra lançado ali (alguém que veio trabalhar mesmo de folga) — mostra
+    // um card à parte pra esse extra não sumir da conta só porque o grupo
+    // dele está desmarcado.
+    gruposComExtraForaDoFiltro.forEach(g=>{
+      const extraCount = ajExtrasSemDuplicar(g).length;
+      html += `<div class="kpi"><div class="n">${extraCount}</div><div class="l">Ajudantes ${g} (extra, folga)</div></div>`;
+    });
+    if(extrasSemGrupo.length > 0){
+      html += `<div class="kpi"><div class="n">${extrasSemGrupo.length}</div><div class="l">Incluído (sem escala)</div></div>`;
+    }
+    const totalFT = grupos.reduce((a,g)=>a+BANCO_DADOS_LISTA.filter(p=>p.tipo==="Fundidor em Treinamento" && p.grupo===g).length,0);
+    const total = grupos.reduce((a,g)=>a+ajudantesDoBancoDadosVisiveis(g).length+ajExtrasSemDuplicar(g).length,0)
+      + gruposComExtraForaDoFiltro.reduce((a,g)=>a+ajExtrasSemDuplicar(g).length,0)
+      + extrasSemGrupo.length;
+    html += `<div class="kpi"><div class="n">${total}</div><div class="l">Total selecionado${totalFT>0 ? ` (+${totalFT} FT, à parte)` : ""}</div></div>`;
+  }
   html += `</div>`;
 
   // Todo mundo cadastrado (qualquer tipo — Fundidor, Ajudante,
@@ -3182,6 +3248,7 @@ function ajudantesListaHTML(){
       <option value="H">H</option>
       <option value="B">B</option>
       <option value="D">D</option>
+      <option value="EXTRA" selected>Incluído</option>
     </select>
     <button class="add-btn" onclick="adicionarAjudanteExtra()">+ Adicionar</button>
   </div>`;
@@ -3189,60 +3256,104 @@ function ajudantesListaHTML(){
   html += `<button class="whatsapp-btn" onclick="compartilharImagemAjudantes()">🖼️ Compartilhar imagem (WhatsApp)</button>
   <span id="copy-feedback-ajudantes" class="copy-feedback"></span>`;
 
-  if(grupos.length === 0 && gruposComExtraForaDoFiltro.length === 0){
+  if(!AJUDANTE_SO_EXTRA && grupos.length === 0 && gruposComExtraForaDoFiltro.length === 0 && extrasSemGrupo.length === 0){
     html += `<p style="color:var(--muted);">Nenhum grupo selecionado.</p>`;
     return html;
   }
 
   html += `<div class="table-wrap"><table><thead><tr><th>Nº</th><th>Grupo</th><th>Ajudante</th></tr></thead><tbody>`;
-  grupos.forEach(g=>{
-    const nomesOriginais = ordenarPorNumeroAjudante(ajudantesDoBancoDadosVisiveis(g));
-    const nomesExtras = ordenarPorNumeroAjudante(ajExtrasSemDuplicar(g));
-    let primeiro = true;
-    nomesOriginais.forEach(nome=>{
-      const num = numeroAjudantePorNome(nome);
-      const bdIdx = idxBancoDadosAjudante(nome, g);
-      html += `<tr class="ajrow-${g}">
-        <td><span class="chapa-cell" contenteditable="true" data-aj-numero="${nome.replace(/"/g,'&quot;')}" style="min-width:24px;display:inline-block;">${num!=null ? num : ""}</span></td>
-        <td>${primeiro ? `<span class="tag tag-${g}">${g}</span>` : ""}</td>
-        <td><div style="display:flex;align-items:center;width:100%;gap:4px;"><span class="chapa-cell" contenteditable="true" data-aj-orig-idx="${bdIdx}" style="font-weight:600;min-width:80px;font-size:.68rem;">${nome}</span>${marcadorFTPorNome(nome)}${marcadorAusenciaPorNome(nome, g)}<span class="del-btn" style="line-height:1;padding:2px 6px;margin-left:auto;flex-shrink:0;" title="Remover só desta lista (continua no Banco de Dados)" onclick="removerAjudanteDaLista('${g}','${nome.replace(/'/g,"\\'")}')">✕</span></div></td>
-      </tr>`;
-      primeiro = false;
-    });
-    nomesExtras.forEach((nome)=>{
-      const idx = AJ_EXTRAS[g].indexOf(nome);
-      const num = numeroAjudantePorNome(nome);
-      const deFolga = AJ_EXTRAS_FOLGA[g].includes(nome);
-      html += `<tr class="ajrow-${g}">
-        <td><span class="chapa-cell" contenteditable="true" data-aj-numero="${nome.replace(/"/g,'&quot;')}" style="min-width:24px;display:inline-block;">${num!=null ? num : ""}</span></td>
-        <td>${primeiro ? `<span class="tag tag-${g}">${g}</span>` : ""}</td>
-        <td><div style="display:flex;align-items:center;width:100%;gap:4px;"><span class="chapa-cell" contenteditable="true" data-aj-extra-grupo="${g}" data-aj-extra-idx="${idx}" style="font-weight:600;min-width:80px;font-size:.68rem;">${nome}</span><span class="tag-extra"${deFolga ? ' title="Cobrindo a folga da '+g+' — sai sozinho quando a '+g+' voltar a trabalhar"' : ''}>${deFolga ? "extra (folga)" : "extra"}</span>${marcadorFTPorNome(nome)}${marcadorAusenciaPorNome(nome, g)}<span class="del-btn" style="line-height:1;padding:2px 6px;margin-left:auto;flex-shrink:0;" onclick="removerAjudanteExtra('${g}',${idx})">✕</span></div></td>
-      </tr>`;
-      primeiro = false;
-    });
-  });
 
-  if(gruposComExtraForaDoFiltro.length > 0){
-    gruposComExtraForaDoFiltro.forEach(g=>{
+  if(AJUDANTE_SO_EXTRA){
+    // Modo "Extra": junta os extras das 4 escalas + o grupo "Extra" numa
+    // lista só, sem o filtro F/H/B/D — é só pra ver/gerenciar quem foi
+    // lançado como extra.
+    let temAlgumExtra = false;
+    ["F","H","B","D","EXTRA"].forEach(g=>{
+      const nomesExtras = ordenarPorNumeroAjudante(ajExtrasSemDuplicar(g));
       let primeiro = true;
-      ordenarPorNumeroAjudante(ajExtrasSemDuplicar(g)).forEach((nome)=>{
+      const tagTexto = g==="EXTRA" ? "Incluído" : g;
+      nomesExtras.forEach((nome)=>{
+        temAlgumExtra = true;
+        const idx = AJ_EXTRAS[g].indexOf(nome);
+        const num = numeroAjudantePorNome(nome);
+        const deFolga = AJ_EXTRAS_FOLGA[g].includes(nome);
+        html += `<tr class="ajrow-${g}">
+          <td><span class="chapa-cell" contenteditable="true" data-aj-numero="${nome.replace(/"/g,'&quot;')}" style="min-width:24px;display:inline-block;">${num!=null ? num : ""}</span></td>
+          <td>${primeiro ? `<span class="tag tag-${g}">${tagTexto}</span>` : ""}</td>
+          <td><div style="display:flex;align-items:center;width:100%;gap:4px;"><span class="chapa-cell" contenteditable="true" data-aj-extra-grupo="${g}" data-aj-extra-idx="${idx}" style="font-weight:600;min-width:80px;font-size:.68rem;">${nome}</span><span class="tag-extra"${deFolga ? ' title="Cobrindo a folga da '+g+' — sai sozinho quando a '+g+' voltar a trabalhar"' : ''}>${deFolga ? "incluído (folga)" : "incluído"}</span>${marcadorFTPorNome(nome)}${marcadorAusenciaPorNome(nome, g)}<span class="del-btn" style="line-height:1;padding:2px 6px;margin-left:auto;flex-shrink:0;" onclick="removerAjudanteExtra('${g}',${idx})">✕</span></div></td>
+        </tr>`;
+        primeiro = false;
+      });
+    });
+    if(!temAlgumExtra){
+      html += `<tr><td colspan="3" style="color:var(--muted);text-align:center;">Nenhum incluído no momento.</td></tr>`;
+    }
+  } else {
+    grupos.forEach(g=>{
+      const nomesOriginais = ordenarPorNumeroAjudante(ajudantesDoBancoDadosVisiveis(g));
+      const nomesExtras = ordenarPorNumeroAjudante(ajExtrasSemDuplicar(g));
+      let primeiro = true;
+      nomesOriginais.forEach(nome=>{
+        const num = numeroAjudantePorNome(nome);
+        const bdIdx = idxBancoDadosAjudante(nome, g);
+        html += `<tr class="ajrow-${g}">
+          <td><span class="chapa-cell" contenteditable="true" data-aj-numero="${nome.replace(/"/g,'&quot;')}" style="min-width:24px;display:inline-block;">${num!=null ? num : ""}</span></td>
+          <td>${primeiro ? `<span class="tag tag-${g}">${g}</span>` : ""}</td>
+          <td><div style="display:flex;align-items:center;width:100%;gap:4px;"><span class="chapa-cell" contenteditable="true" data-aj-orig-idx="${bdIdx}" style="font-weight:600;min-width:80px;font-size:.68rem;">${nome}</span>${marcadorFTPorNome(nome)}${marcadorAusenciaPorNome(nome, g)}<span class="del-btn" style="line-height:1;padding:2px 6px;margin-left:auto;flex-shrink:0;" title="Remover só desta lista (continua no Banco de Dados)" onclick="removerAjudanteDaLista('${g}','${nome.replace(/'/g,"\\'")}')">✕</span></div></td>
+        </tr>`;
+        primeiro = false;
+      });
+      nomesExtras.forEach((nome)=>{
         const idx = AJ_EXTRAS[g].indexOf(nome);
         const num = numeroAjudantePorNome(nome);
         const deFolga = AJ_EXTRAS_FOLGA[g].includes(nome);
         html += `<tr class="ajrow-${g}">
           <td><span class="chapa-cell" contenteditable="true" data-aj-numero="${nome.replace(/"/g,'&quot;')}" style="min-width:24px;display:inline-block;">${num!=null ? num : ""}</span></td>
           <td>${primeiro ? `<span class="tag tag-${g}">${g}</span>` : ""}</td>
-          <td><div style="display:flex;align-items:center;width:100%;gap:4px;"><span class="chapa-cell" contenteditable="true" data-aj-extra-grupo="${g}" data-aj-extra-idx="${idx}" style="font-weight:600;min-width:80px;font-size:.68rem;">${nome}</span><span class="tag-extra"${deFolga ? ' title="Cobrindo a folga da '+g+' — sai sozinho quando a '+g+' voltar a trabalhar"' : ''}>${deFolga ? "extra (folga)" : "extra"}</span><span class="del-btn" style="line-height:1;padding:2px 6px;margin-left:auto;flex-shrink:0;" onclick="removerAjudanteExtra('${g}',${idx})">✕</span></div></td>
+          <td><div style="display:flex;align-items:center;width:100%;gap:4px;"><span class="chapa-cell" contenteditable="true" data-aj-extra-grupo="${g}" data-aj-extra-idx="${idx}" style="font-weight:600;min-width:80px;font-size:.68rem;">${nome}</span><span class="tag-extra"${deFolga ? ' title="Cobrindo a folga da '+g+' — sai sozinho quando a '+g+' voltar a trabalhar"' : ''}>${deFolga ? "incluído (folga)" : "incluído"}</span>${marcadorFTPorNome(nome)}${marcadorAusenciaPorNome(nome, g)}<span class="del-btn" style="line-height:1;padding:2px 6px;margin-left:auto;flex-shrink:0;" onclick="removerAjudanteExtra('${g}',${idx})">✕</span></div></td>
         </tr>`;
         primeiro = false;
       });
     });
+
+    if(gruposComExtraForaDoFiltro.length > 0){
+      gruposComExtraForaDoFiltro.forEach(g=>{
+        let primeiro = true;
+        ordenarPorNumeroAjudante(ajExtrasSemDuplicar(g)).forEach((nome)=>{
+          const idx = AJ_EXTRAS[g].indexOf(nome);
+          const num = numeroAjudantePorNome(nome);
+          const deFolga = AJ_EXTRAS_FOLGA[g].includes(nome);
+          html += `<tr class="ajrow-${g}">
+            <td><span class="chapa-cell" contenteditable="true" data-aj-numero="${nome.replace(/"/g,'&quot;')}" style="min-width:24px;display:inline-block;">${num!=null ? num : ""}</span></td>
+            <td>${primeiro ? `<span class="tag tag-${g}">${g}</span>` : ""}</td>
+            <td><div style="display:flex;align-items:center;width:100%;gap:4px;"><span class="chapa-cell" contenteditable="true" data-aj-extra-grupo="${g}" data-aj-extra-idx="${idx}" style="font-weight:600;min-width:80px;font-size:.68rem;">${nome}</span><span class="tag-extra"${deFolga ? ' title="Cobrindo a folga da '+g+' — sai sozinho quando a '+g+' voltar a trabalhar"' : ''}>${deFolga ? "incluído (folga)" : "incluído"}</span><span class="del-btn" style="line-height:1;padding:2px 6px;margin-left:auto;flex-shrink:0;" onclick="removerAjudanteExtra('${g}',${idx})">✕</span></div></td>
+          </tr>`;
+          primeiro = false;
+        });
+      });
+    }
+
+    // Grupo "Extra": sempre aparece por último na tabela, como uma seção
+    // própria — é pra quem é lançado sem entrar em nenhuma escala F/H/B/D.
+    if(extrasSemGrupo.length > 0){
+      let primeiro = true;
+      extrasSemGrupo.forEach((nome)=>{
+        const idx = AJ_EXTRAS.EXTRA.indexOf(nome);
+        const num = numeroAjudantePorNome(nome);
+        html += `<tr class="ajrow-EXTRA">
+          <td><span class="chapa-cell" contenteditable="true" data-aj-numero="${nome.replace(/"/g,'&quot;')}" style="min-width:24px;display:inline-block;">${num!=null ? num : ""}</span></td>
+          <td>${primeiro ? `<span class="tag tag-EXTRA">Incluído</span>` : ""}</td>
+          <td><div style="display:flex;align-items:center;width:100%;gap:4px;"><span class="chapa-cell" contenteditable="true" data-aj-extra-grupo="EXTRA" data-aj-extra-idx="${idx}" style="font-weight:600;min-width:80px;font-size:.68rem;">${nome}</span>${marcadorFTPorNome(nome)}${marcadorAusenciaPorNome(nome, "EXTRA")}<span class="del-btn" style="line-height:1;padding:2px 6px;margin-left:auto;flex-shrink:0;" onclick="removerAjudanteExtra('EXTRA',${idx})">✕</span></div></td>
+        </tr>`;
+        primeiro = false;
+      });
+    }
   }
 
   html += `</tbody></table></div>`;
 
   const removidosNoFiltro = [];
-  grupos.forEach(g=>(AJUDANTES_REMOVIDOS[g]||[]).forEach(nome=>removidosNoFiltro.push({g, nome})));
+  if(!AJUDANTE_SO_EXTRA) grupos.forEach(g=>(AJUDANTES_REMOVIDOS[g]||[]).forEach(nome=>removidosNoFiltro.push({g, nome})));
   if(removidosNoFiltro.length > 0){
     html += `<div style="margin:10px 0;padding:8px 10px;border:1px dashed var(--border);border-radius:8px;">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;">
@@ -3281,6 +3392,7 @@ function ordenarPorNumeroAjudante(nomes){
 }
 
 function toggleFiltroAjudante(g){
+  AJUDANTE_SO_EXTRA = false;
   const idx = ajudanteFiltro.indexOf(g);
   if(idx>=0){
     ajudanteFiltro.splice(idx,1);
@@ -3290,8 +3402,26 @@ function toggleFiltroAjudante(g){
   document.getElementById("sec-ajudantes").innerHTML = ajudantesListaHTML();
 }
 
+// Liga/desliga o modo "Extra" — mostra só quem está lançado como extra,
+// juntando as 4 escalas numa lista só.
+function alternarSoExtraAjudante(){
+  AJUDANTE_SO_EXTRA = !AJUDANTE_SO_EXTRA;
+  document.getElementById("sec-ajudantes").innerHTML = ajudantesListaHTML();
+}
+
 function selecionarTodosAjudantes(){
+  AJUDANTE_SO_EXTRA = false;
   ajudanteFiltro = ["F","H","B","D"];
+  // "Todos" também restaura a lista pro que está no Banco de Dados — desfaz
+  // qualquer remoção feita só na Lista de Ajudantes (o "✕" que tira alguém
+  // só dessa tela, sem mexer no cadastro) e tira também os extras lançados
+  // manualmente (inclusive "extra (folga)"), voltando só pro cadastrado.
+  AJUDANTES_REMOVIDOS = {F:[],H:[],B:[],D:[]};
+  salvarAjudantesRemovidos();
+  AJ_EXTRAS = {F:[],H:[],B:[],D:[],EXTRA:[]};
+  salvarExtras();
+  AJ_EXTRAS_FOLGA = {F:[],H:[],B:[],D:[],EXTRA:[]};
+  salvarAjudanteExtrasFolga();
   document.getElementById("sec-ajudantes").innerHTML = ajudantesListaHTML();
 }
 
