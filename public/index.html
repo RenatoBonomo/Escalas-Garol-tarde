@@ -192,7 +192,7 @@
     "folguistaGrupoProprio","grupoOriginalPorNome","grupoOriginalPorChapa","listaFundidoresExtras",
     "atestados","ordemAbas","bancoHoras","fixoDataManha","folguistaDataManha",
     "ajudanteNumeros","planilhaUploadOverrides","uploadPlanilhaContador","ordemBotoesEscala",
-    "ajudantesRemovidos"
+    "ajudantesRemovidos","capacidadeFundicaoConfig"
   ];
 
   // Guarda a função original ANTES de qualquer patch, pra podermos gravar
@@ -6956,7 +6956,13 @@ const CHAVES_BACKUP = [
   "chapaOverrides","bancaOverrides","ajudanteExtras","ajudanteExtrasFolga","historicoChapas",
   "folguistaGrupoProprio","grupoOriginalPorNome","grupoOriginalPorChapa","listaFundidoresExtras",
   "atestados","ordemAbas","bancoHoras","fixoDataManha","folguistaDataManha",
-  "ajudanteNumeros","planilhaUploadOverrides","uploadPlanilhaContador","ordemBotoesEscala"
+  "ajudanteNumeros","planilhaUploadOverrides","uploadPlanilhaContador","ordemBotoesEscala",
+  "capacidadeFundicaoConfig",
+  // Qualidade Tarde: mesmo rodando num iframe à parte, o localStorage dele é
+  // o mesmo do app principal (mesma origem) — então essas chaves já ficam
+  // salvas aqui também e entram no backup normalmente.
+  "qualidadeSessaoAtual","qualidadeDados5Dias","qualidadeDadosMensal","qualidadeArquivosBrutos",
+  "modoDivisaoLiderQualidade","divisorBancasQualidade","lideresNaDivisaoQualidade","divisaoManualQualidade"
 ];
 
 // Baixa só um .json com os dados salvos neste dispositivo (sem o app inteiro junto)
